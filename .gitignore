@@ -1,0 +1,78 @@
+# ---- Python bytecode and cache ----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ---- Virtual environments ----
+.venv/
+venv/
+env/
+ENV/
+
+# ---- Packaging / build artifacts ----
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+wheels/
+*.spec
+MANIFEST
+
+# ---- Installer logs ----
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ---- Testing / coverage ----
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.cache/
+.hypothesis/
+
+# ---- Static type checking / lint caches ----
+.mypy_cache/
+.pytype/
+.pyre/
+.ruff_cache/
+.pylint.d/
+
+# ---- Jupyter ----
+.ipynb_checkpoints/
+
+# ---- Editors / IDEs ----
+.vscode/
+.idea/
+*.iml
+
+# ---- OS files ----
+.DS_Store
+Thumbs.db
+
+# ---- Local environment / tooling ----
+.python-version
+.env
+.env.*
+
+# ---- Project data files (adjust if you want to track them) ----
+# SQLite database and write-ahead logs
+#printers.db
+#*.db
+*.sqlite3
+*.sqlite
+*.db-shm
+*.db-wal
+
+# Excel/CSV inputs commonly used locally
+#ruckerliste_CARI.xlsx
+# Uncomment if all spreadsheets are local-only and shouldn’t be committed
+# *.xlsx
+# *.xlsm
+# *.csv
+
+# ---- Logs / outputs ----
+logs/
+*.log
