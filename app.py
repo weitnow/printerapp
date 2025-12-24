@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
 import db
-from views.base_view import BaseView
 from views.printers import PrintersView
 from views.bureaus import BureausView
 from views.all_slots import AllSlotsView

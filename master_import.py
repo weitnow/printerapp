@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS printernames (
 
     FOREIGN KEY (StandortID)
         REFERENCES lieugestion(StandortID)
-        ON DELETE SET NULL
+        ON DELETE RESTRICT
 )
 """)
 
@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS slot_caridocs (
                
     FOREIGN KEY (PrinterName, SlotName)
         REFERENCES printerslots(PrinterName, SlotName)
-        ON DELETE RESTRICT,  -- Don't allow slot deletion if CARIdocs assigned
+        ON DELETE CASCADE,  -- if printerslots is deleted, the caridoc where the printerslot was assigned will be deleted automatically
 
     FOREIGN KEY (CARIdoc)
         REFERENCES caridocs(CARIdoc)
