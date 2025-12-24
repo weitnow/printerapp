@@ -15,7 +15,7 @@ class BureausView(BaseView):
     FROM bureaus b
     LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
     LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
-    ORDER BY b.Bureau
+    ORDER BY b.BureauID
     """
 
 

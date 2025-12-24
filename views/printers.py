@@ -16,7 +16,7 @@ class PrintersView(BaseView):
     p.PrinterModel
     FROM printernames p
     LEFT JOIN lieugestion l ON p.StandortID = l.StandortID
-    ORDER BY PrinterName
+    ORDER BY l.Standort, p.PrinterName
     """
 
 

@@ -34,7 +34,7 @@ class AllSlotsView(BaseView):
     LEFT JOIN bureaus b ON sc.BureauID = b.BureauID
     LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
     LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
-    ORDER BY pn.PrinterName, ps.SlotName
+    ORDER BY l.Standort, pn.PrinterName, ps.SlotName
     """
 
     def fetch(self, conn):
