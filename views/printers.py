@@ -20,6 +20,16 @@ class PrintersView(BaseView):
     ORDER BY p.PrinterName
     """
 
+    def on_double_click(self, app, row):
+        """Handle double-click event - navigate to printer slots view"""
+        printer_name = row[0]  # PrinterName is the first column
+        self.show_printer_slots(app, printer_name)
+
+    def show_printer_slots(self, app, printer_name):
+        """Switch to printer slots view filtered by printer name"""
+        # Switch to the slot_printer view
+        app.switch_view("printer slots", filter_printer=printer_name)
+
     def delete(self, app, row):
         printer_name = row[1]  # PrinterName is the second column
         

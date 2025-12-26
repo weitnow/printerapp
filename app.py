@@ -25,6 +25,10 @@ class PrinterApp:
         main_frame = tk.Frame(self.root)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
+        # Container for dynamic content (like back button)
+        self.dynamic_frame = tk.Frame(main_frame)
+        self.dynamic_frame.pack(fill="x")
+        
         self._create_filter_bar(main_frame)
         self._create_treeview(main_frame)
         self._create_context_menu()
@@ -70,6 +74,9 @@ class PrinterApp:
         
         v_scroll.config(command=self.tree.yview)
         h_scroll.config(command=self.tree.xview)
+        
+        # Event bindings for double-click
+        self.tree.bind("<Double-Button-1>", self._on_double_click)
 
     def _create_context_menu(self):
         """Rechtsklick-Menü erstellen"""
@@ -85,24 +92,48 @@ class PrinterApp:
         
         view_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="View", menu=view_menu)
-        view_menu.add_command(label="Printer Slots", command=lambda: self.set_view("slot_printer"))
-        view_menu.add_command(label="Cari Doc Slots", command=lambda: self.set_view("slot_cari_docs"))
-        view_menu.add_command(label="Printers", command=lambda: self.set_view("printers"))
-        view_menu.add_command(label="Bureaus", command=lambda: self.set_view("bureaus"))
+        view_menu.add_command(label="Printer Slots", command=lambda: self.switch_view("printer slots"))
+        view_menu.add_command(label="Cari Doc Slots", command=lambda: self.switch_view("slot_cari_docs"))
+        view_menu.add_command(label="Printers", command=lambda: self.switch_view("printers"))
+        view_menu.add_command(label="Bureaus", command=lambda: self.switch_view("bureaus"))
 
     def _setup_views(self):
         """Verfügbare Views initialisieren"""
         self.views = {
             "printers": PrintersView(),
             "bureaus": BureausView(),
-            "slot_printer": SlotPrinter(),
+            "printer slots": SlotPrinter(),
             "slot_cari_docs": SlotCariDoc(),
         }
         self.current_view = None
 
     def set_view(self, name):
-        """View wechseln und Daten laden"""
-        self.current_view = self.views[name]
+        """View wechseln und Daten laden (legacy method)"""
+        self.switch_view(name)
+
+    def switch_view(self, view_name, **kwargs):
+        """Switch to a different view with optional parameters"""
+        # Check if view exists
+        if view_name not in self.views:
+            print(f"Warning: View '{view_name}' not found")
+            return
+        
+        # Call on_view_hidden for current view
+        if self.current_view and hasattr(self.current_view, 'on_view_hidden'):
+            self.current_view.on_view_hidden(self)
+        
+        # Get the target view
+        target_view = self.views[view_name]
+        
+        # Handle filter parameter for printer slots
+        if 'filter_printer' in kwargs and hasattr(target_view, 'set_filter'):
+            target_view.set_filter(kwargs['filter_printer'])
+        elif hasattr(target_view, 'clear_filter'):
+            # Clear filter if switching without filter parameter
+            target_view.clear_filter()
+        
+        # Switch to the view
+        self.current_view = target_view
         self.filter_entry.delete(0, tk.END)
         
         # Filter-Dropdown aktualisieren
@@ -112,11 +143,22 @@ class PrinterApp:
             self.filter_column.set(columns[0])
         
         self.refresh_view()
+        
+        # Call on_view_shown for new view
+        if hasattr(self.current_view, 'on_view_shown'):
+            self.current_view.on_view_shown(self, self.dynamic_frame)
 
     def refresh_view(self):
         """Daten neu laden und Treeview aktualisieren"""
         with db.get_connection() as conn:
-            self.current_rows = self.current_view.fetch(conn)
+            # Use get_query if available (for filtered views)
+            if hasattr(self.current_view, 'get_query'):
+                query = self.current_view.get_query()
+                cursor = conn.cursor()
+                cursor.execute(query)
+                self.current_rows = cursor.fetchall()
+            else:
+                self.current_rows = self.current_view.fetch(conn)
         
         self._configure_columns()
         self._populate_tree(self.current_rows)
@@ -166,12 +208,29 @@ class PrinterApp:
                    if filter_text in str(row[idx]).lower()]
         self._populate_tree(filtered)
 
+    def _on_double_click(self, event):
+        """Handle double-click on tree item"""
+        selection = self.tree.selection()
+        if selection and self.current_view:
+            item = selection[0]
+            row = self.tree.item(item, "values")
+            # Call the view's on_double_click handler if it exists
+            if hasattr(self.current_view, 'on_double_click'):
+                self.current_view.on_double_click(self, row)
+
     def _show_context_menu(self, event):
         """Kontextmenü anzeigen"""
         row_id = self.tree.identify_row(event.y)
         if row_id:
             self.tree.selection_set(row_id)
-            self.context_menu.post(event.x_root, event.y_root)
+            
+            # Check if view has custom right-click handler
+            if hasattr(self.current_view, 'on_right_click'):
+                row = self.tree.item(row_id, "values")
+                self.current_view.on_right_click(self, row, event)
+            else:
+                # Show default context menu
+                self.context_menu.post(event.x_root, event.y_root)
 
     def _configure_row(self):
         """Zeile konfigurieren"""

@@ -31,3 +31,19 @@ class BaseView(ABC):
     def delete(self, app, row):
         """Delete method must be implemented by each view"""
         pass
+
+    def get_query(self):
+        """Override this method if you need dynamic queries"""
+        return self.query
+    
+    def on_double_click(self, app, row):
+        """Override this method to handle double-click events"""
+        pass
+
+    def on_view_shown(self, app, frame):
+        """Called when view is shown - override for custom behavior"""
+        pass
+    
+    def on_view_hidden(self, app):
+        """Called when view is hidden - override for cleanup"""
+        pass
