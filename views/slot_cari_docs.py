@@ -2,7 +2,7 @@ from .base_view import BaseView
 from tkinter import messagebox
 
 
-class AllSlotsView(BaseView):
+class SlotCariDoc(BaseView):
     name = "all_slots"
     columns = [
         "PrinterName", "PrinterModel", "SlotName", "PaperFormat",

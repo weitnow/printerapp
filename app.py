@@ -3,7 +3,8 @@ from tkinter import ttk
 import db
 from views.printers import PrintersView
 from views.bureaus import BureausView
-from views.all_slots import AllSlotsView
+from views.slot_cari_docs import SlotCariDoc
+from views.slot_printer import SlotPrinter
 
 
 class PrinterApp:
@@ -84,7 +85,8 @@ class PrinterApp:
         
         view_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="View", menu=view_menu)
-        view_menu.add_command(label="All Printer Slots", command=lambda: self.set_view("all_slots"))
+        view_menu.add_command(label="Printer Slots", command=lambda: self.set_view("slot_printer"))
+        view_menu.add_command(label="Cari Doc Slots", command=lambda: self.set_view("slot_cari_docs"))
         view_menu.add_command(label="Printers", command=lambda: self.set_view("printers"))
         view_menu.add_command(label="Bureaus", command=lambda: self.set_view("bureaus"))
 
@@ -93,7 +95,8 @@ class PrinterApp:
         self.views = {
             "printers": PrintersView(),
             "bureaus": BureausView(),
-            "all_slots": AllSlotsView(),
+            "slot_printer": SlotPrinter(),
+            "slot_cari_docs": SlotCariDoc(),
         }
         self.current_view = None
 
