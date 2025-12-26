@@ -8,15 +8,16 @@ import db  # Import the db module
 # =====================
 class PrintersView(BaseView):
     name = "printers"
-    columns = ["Standort", "PrinterName", "PrinterModel"]
+    columns = ["PrinterName", "Anzahl konfigurierte Slots", "PrinterModel", "Standort"]
     query = """
     SELECT 
-    l.Standort,
     p.PrinterName,
-    p.PrinterModel
+    (SELECT COUNT(*) FROM printerslots ps WHERE ps.PrinterName = p.PrinterName) AS 'Anzahl Slots',
+    p.PrinterModel,
+    l.Standort
     FROM printernames p
     LEFT JOIN lieugestion l ON p.StandortID = l.StandortID
-    ORDER BY PrinterName
+    ORDER BY p.PrinterName
     """
 
     def delete(self, app, row):

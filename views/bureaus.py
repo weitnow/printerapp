@@ -5,22 +5,23 @@ import db  # Import the db module
 
 class BureausView(BaseView):
     name = "bureaus"
-    columns = ["BureauID", "Bureau", "Fachabteilung", "Standort"]
+    columns = ["BureauID", "Bureau", "Anzahl konfigurierte Slots", "Fachabteilung", "Standort"]
     query = """
     SELECT
     b.BureauID,
     b.Bureau,
+    (SELECT COUNT(*) FROM slot_caridocs sc WHERE sc.BureauID = b.BureauID) AS 'Anzahl konfigurierte Slots',
     f.Fachabteilung,
     l.Standort
     FROM bureaus b
     LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
     LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
-    ORDER BY b.Bureau
+    ORDER BY b.BureauID
     """
 
     def delete(self, app, row):
         bureau_id = row[0]
-        if messagebox.askyesno("Delete", f"Delete bureau ID {bureau_id}?"):
+        if messagebox.askyesno("Delete", f"Lösche bureau ID {bureau_id}? \nBureaus sollten nicht gelöscht werden, weil die BureauID in CARI vergeben ist."):
             try:
                 with db.get_connection() as conn:
                     cur = conn.cursor()

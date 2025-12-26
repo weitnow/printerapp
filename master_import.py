@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS printerslots (
     SlotName TEXT NOT NULL,
     PaperFormat TEXT,
     TwoSided BOOLEAN NOT NULL DEFAULT 0,  -- Default to one-sided
-    Inspect BOOLEAN NOT NULL DEFAULT 0,   -- Default to no inspection
+    Autoprint BOOLEAN NOT NULL DEFAULT 0,   -- Default to no autoprint
     Bemerkung TEXT,
     
     CHECK (length(trim(PrinterName)) > 0),  -- No empty names
@@ -292,7 +292,7 @@ for _, row in df_printers.iterrows():
     caridoc = row['CARIdoc']
     paperformat = row['Format']
     two_sided = True if str(row['2-sided']).strip().lower() in ['2-sided', 'true', '1'] else False
-    inspect = True if str(row['Inspect']).strip().lower() in ['true', '1', 'yes', 'x'] else False
+    autoprint = True if str(row['Autoprint']).strip().lower() in ['true', '1', 'yes', 'x'] else False
     bureau_id = row.get('Bureau-ID', None)
     bemerkung = row['Bemerkung'] if pd.notna(row['Bemerkung']) else None
 
@@ -305,9 +305,9 @@ for _, row in df_printers.iterrows():
     # Insert slot first
     cursor.execute("""
         INSERT OR IGNORE INTO printerslots 
-        (PrinterName, SlotName, PaperFormat, TwoSided, Inspect, Bemerkung)
+        (PrinterName, SlotName, PaperFormat, TwoSided, Autoprint, Bemerkung)
         VALUES (?, ?, ?, ?, ?, NULL)
-    """, (printer_name, slot_name, paperformat, two_sided, inspect))
+    """, (printer_name, slot_name, paperformat, two_sided, autoprint))
 
     # TEMP CHECKS - Foreign Key Validation
     # These checks verify that all foreign key relationships are valid before inserting data

@@ -6,7 +6,7 @@ class AllSlotsView(BaseView):
     name = "all_slots"
     columns = [
         "PrinterName", "PrinterModel", "SlotName", "PaperFormat",
-        "TwoSided", "Inspect", "SlotBemerkung", "CARIdoc",
+        "TwoSided", "Autoprint", "SlotBemerkung", "CARIdoc",
         "Bureau", "BureauID", "Fachabteilung", "Standort",
         "BureauBemerkung"
     ]
@@ -17,7 +17,7 @@ class AllSlotsView(BaseView):
         ps.SlotName,
         ps.PaperFormat,
         ps.TwoSided,
-        ps.Inspect,
+        ps.Autoprint,
         ps.Bemerkung AS SlotBemerkung,
         sc.CARIdoc,
         b.Bureau,
