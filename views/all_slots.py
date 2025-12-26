@@ -1,7 +1,6 @@
 from .base_view import BaseView
-import sqlite3
 from tkinter import messagebox
-from db import DB_FILE
+
 
 class AllSlotsView(BaseView):
     name = "all_slots"
@@ -34,7 +33,7 @@ class AllSlotsView(BaseView):
     LEFT JOIN bureaus b ON sc.BureauID = b.BureauID
     LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
     LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
-    ORDER BY l.Standort, pn.PrinterName, ps.SlotName
+    ORDER BY pn.PrinterName, ps.SlotName
     """
 
     def fetch(self, conn):

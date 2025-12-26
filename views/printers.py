@@ -1,7 +1,7 @@
 from .base_view import BaseView
 import sqlite3
 from tkinter import messagebox
-from db import DB_FILE
+import db  # Import the db module
 
 # =====================
 # Concrete Views
@@ -16,19 +16,47 @@ class PrintersView(BaseView):
     p.PrinterModel
     FROM printernames p
     LEFT JOIN lieugestion l ON p.StandortID = l.StandortID
-    ORDER BY l.Standort, p.PrinterName
+    ORDER BY PrinterName
     """
 
-
     def delete(self, app, row):
-        printer = row[0]
-        if messagebox.askyesno("Delete", f"Delete printer '{printer}'?"):
-            conn = sqlite3.connect(DB_FILE)
-            cur = conn.cursor()
-            cur.execute(
-            "DELETE FROM printernames WHERE PrinterName = ?",
-            (printer,)
-            )
-            conn.commit()
-            conn.close()
-            app.refresh_view()
+        printer_name = row[1]  # PrinterName is the second column
+        
+        # First, check if printer has slots
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT COUNT(*) 
+                    FROM printerslots 
+                    WHERE PrinterName = ?
+                """, (printer_name,))
+                slot_count = cur.fetchone()[0]
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not check printer slots: {str(e)}")
+            return
+        
+        # Build warning message based on slot count
+        if slot_count > 0:
+            message = (f"Printer '{printer_name}' has {slot_count} slot(s) assigned.\n\n"
+                      f"Deleting the printer will also delete all its slots and their assignments.\n\n"
+                      f"Do you want to continue?")
+        else:
+            message = f"Delete printer '{printer_name}'?"
+        
+        # Ask for confirmation
+        if messagebox.askyesno("Delete Printer", message):
+            try:
+                with db.get_connection() as conn:
+                    cur = conn.cursor()
+                    cur.execute(
+                        "DELETE FROM printernames WHERE PrinterName = ?",
+                        (printer_name,)
+                    )
+                app.refresh_view()
+                messagebox.showinfo("Success", f"Printer '{printer_name}' deleted successfully.")
+            except sqlite3.IntegrityError as e:
+                messagebox.showerror("Error", 
+                    f"Cannot delete printer: {str(e)}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Unexpected error: {str(e)}")
