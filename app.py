@@ -18,7 +18,7 @@ class PrinterApp:
         
         self._setup_ui()
         self._setup_views()
-        self.set_view("printers")
+        self.switch_view("printers")
 
     def _setup_ui(self):
         """UI-Komponenten erstellen"""
@@ -106,10 +106,6 @@ class PrinterApp:
             "slot_cari_docs": SlotCariDoc(),
         }
         self.current_view = None
-
-    def set_view(self, name):
-        """View wechseln und Daten laden (legacy method)"""
-        self.switch_view(name)
 
     def switch_view(self, view_name, **kwargs):
         """Switch to a different view with optional parameters"""

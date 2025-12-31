@@ -71,8 +71,8 @@ class SlotPrinter(BaseView):
         app.switch_view("printers")
     
     def delete(self, app, row):
-        printer_name = row[1]  # PrinterName
-        slot_name = row[2]     # SlotName
+        printer_name = row[0]  # PrinterName
+        slot_name = row[1]     # SlotName
         
         if messagebox.askyesno("Delete Slot", 
                               f"Delete slot '{slot_name}' from printer '{printer_name}'?"):

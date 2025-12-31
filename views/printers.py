@@ -8,11 +8,12 @@ import db  # Import the db module
 # =====================
 class PrintersView(BaseView):
     name = "printers"
-    columns = ["PrinterName", "Anzahl konfigurierte Slots", "PrinterModel", "Standort"]
+    columns = ["PrinterName", "Anzahl konfigurierte Slots", "Anzahl zugewiesene CARI-Bureau(s)", "PrinterModel", "Standort"]
     query = """
     SELECT 
     p.PrinterName,
     (SELECT COUNT(*) FROM printerslots ps WHERE ps.PrinterName = p.PrinterName) AS 'Anzahl Slots',
+    (SELECT COUNT(*) FROM slot_caridocs sc WHERE sc.PrinterName = p.PrinterName) AS 'Anzahl CARI-Bureas',
     p.PrinterModel,
     l.Standort
     FROM printernames p
