@@ -18,6 +18,13 @@ class BureausView(BaseView):
     LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
     ORDER BY b.BureauID
     """
+    
+    def __init__(self):
+        super().__init__()
+        self.filtered_printer = None
+        self.back_button = None
+
+
 
     def delete(self, app, row):
         bureau_id = row[0]

@@ -36,7 +36,7 @@ class BaseView(ABC):
         """Override this method if you need dynamic queries"""
         return self.query
     
-    def on_double_click(self, app, row):
+    def on_double_click(self, app, row, col):
         """Override this method to handle double-click events"""
         pass
 

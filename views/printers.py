@@ -21,8 +21,11 @@ class PrintersView(BaseView):
     ORDER BY p.PrinterName
     """
 
-    def on_double_click(self, app, row):
+    def on_double_click(self, app, row, col):
         """Handle double-click event - navigate to printer slots view"""
+        if col == "#3":
+            print("Implement viewing assigned CARI Bureaus here.")
+            return  # Ignore double-clicks on "Anzahl zugewiesene CARI-Bureau(s)" column
         printer_name = row[0]  # PrinterName is the first column
         self.show_printer_slots(app, printer_name)
 

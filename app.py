@@ -205,14 +205,17 @@ class PrinterApp:
         self._populate_tree(filtered)
 
     def _on_double_click(self, event):
-        """Handle double-click on tree item"""
-        selection = self.tree.selection()
-        if selection and self.current_view:
-            item = selection[0]
-            row = self.tree.item(item, "values")
-            # Call the view's on_double_click handler if it exists
-            if hasattr(self.current_view, 'on_double_click'):
-                self.current_view.on_double_click(self, row)
+        row_id = self.tree.identify_row(event.y)
+        col_id = self.tree.identify_column(event.x)
+
+        if not row_id or not self.current_view:
+            return
+
+        row = self.tree.item(row_id, "values")
+
+        if hasattr(self.current_view, 'on_double_click'):
+            self.current_view.on_double_click(self, row, col_id)
+   
 
     def _show_context_menu(self, event):
         """Kontextmenü anzeigen"""
