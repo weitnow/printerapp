@@ -11,7 +11,6 @@ class BaseView(ABC):
     columns: list[str] = []
     query: str = ""
 
-
     def fetch(self, conn):
         """Fetch data using the provided connection"""
         cur = conn.cursor()
@@ -26,6 +25,27 @@ class BaseView(ABC):
         "\n".join(f"{c}: {v}" for c, v in zip(self.columns, row))
         )
 
+    def on_double_click(self, app, row, col):
+        """
+        Generic double-click handler:
+        - row: tuple of row values
+        - col: Treeview column id (#1, #2, ...)
+        """
+
+        # check is there is a attribute columns_actions
+        if not hasattr(self, 'columns_actions'):
+            print("No columns_actions for this view defined.")
+            return
+
+        action_name = self.columns_actions.get(col)
+        if not action_name:
+            print(f"No action defined for column {col}.")
+            return  # No action defined for this column
+        
+        handler = getattr(self, action_name, None)
+        if callable(handler):
+            handler(app, row, col)
+
 
     @abstractmethod
     def delete(self, app, row):
@@ -35,10 +55,6 @@ class BaseView(ABC):
     def get_query(self):
         """Override this method if you need dynamic queries"""
         return self.query
-    
-    def on_double_click(self, app, row, col):
-        """Override this method to handle double-click events"""
-        pass
 
     def on_view_shown(self, app, frame):
         """Called when view is shown - override for custom behavior"""

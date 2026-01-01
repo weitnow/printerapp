@@ -214,12 +214,16 @@ class PrinterApp:
         row = self.tree.item(row_id, "values")
 
         if hasattr(self.current_view, 'on_double_click'):
-            self.current_view.on_double_click(self, row, col_id)
+            self.current_view.on_double_click(self, row_id, col_id)
    
 
     def _show_context_menu(self, event):
         """Kontextmenü anzeigen"""
         row_id = self.tree.identify_row(event.y)
+        if not row_id or not self.current_view:
+            return
+
+
         if row_id:
             self.tree.selection_set(row_id)
             

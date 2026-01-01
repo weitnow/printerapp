@@ -9,6 +9,10 @@ import db  # Import the db module
 class PrintersView(BaseView):
     name = "printers"
     columns = ["PrinterName", "Anzahl konfigurierte Slots", "Anzahl zugewiesene CARI-Bureau(s)", "PrinterModel", "Standort"]
+    columns_actions = {
+        "#2": "show_printer_slots",  # Double-click on PrinterName to show slots
+        "#3": "show_caridoc_bureaus"  # Placeholder for future action
+    }
     query = """
     SELECT 
     p.PrinterName,
@@ -21,18 +25,17 @@ class PrintersView(BaseView):
     ORDER BY p.PrinterName
     """
 
-    def on_double_click(self, app, row, col):
-        """Handle double-click event - navigate to printer slots view"""
-        if col == "#3":
-            print("Implement viewing assigned CARI Bureaus here.")
-            return  # Ignore double-clicks on "Anzahl zugewiesene CARI-Bureau(s)" column
-        printer_name = row[0]  # PrinterName is the first column
-        self.show_printer_slots(app, printer_name)
-
-    def show_printer_slots(self, app, printer_name):
+    def show_printer_slots(self, app, row, col):
         """Switch to printer slots view filtered by printer name"""
-        # Switch to the slot_printer view
+        printer_name = row[0]  # PrinterName is the first column
         app.switch_view("printer slots", filter_printer=printer_name)
+
+    def show_caridoc_bureaus(self, app, row, col):
+        """Placeholder for future implementation to show CARI-Bureaus"""
+        messagebox.showinfo(
+            "Info",
+            "This feature is not yet implemented."
+        )
 
     def delete(self, app, row):
         printer_name = row[1]  # PrinterName is the second column
