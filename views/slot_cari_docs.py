@@ -92,7 +92,6 @@ class SlotCariDoc(BaseView):
                 command=lambda: self.go_back(app)
             )
             self.back_button.pack(side="top", fill="x", padx=5, pady=5)
-            
     
     def on_view_hidden(self, app):
         """Called when view is hidden - cleanup"""
@@ -100,27 +99,12 @@ class SlotCariDoc(BaseView):
             self.back_button.destroy()
             self.back_button = None
 
-        
     
     def go_back(self, app):
         """Go back to printers view and clear filter"""
         self.clear_filter()
         app.switch_view("printers")
 
-    def fetch(self, conn):
-        """Liefert immer mindestens eine Zeile zurück, damit Treeview korrekt aufgebaut wird."""
-        cur = conn.cursor()
-        try:
-            cur.execute(self.query)
-            rows = cur.fetchall()
-            # Mindestens eine leere Zeile zurückgeben, falls keine Daten
-            if not rows:
-                rows = [tuple("" for _ in self.columns)]
-            return rows
-        except Exception as e:
-            print("Fehler beim Laden der Slots:", e)
-            # Fallback: leere Zeile
-            return [tuple("" for _ in self.columns)]
 
     def delete(self, app, row):
         messagebox.showwarning(
