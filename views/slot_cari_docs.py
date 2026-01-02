@@ -48,19 +48,13 @@ class SlotCariDoc(BaseView):
         if self.filtered_printer:
             return f"""
             SELECT
-                pn.PrinterName,
-                pn.PrinterModel,
+                sc.CARIdoc,
                 ps.SlotName,
                 ps.PaperFormat,
                 ps.TwoSided,
                 ps.Autoprint,
                 ps.Bemerkung AS SlotBemerkung,
-                sc.CARIdoc,
-                b.Bureau,
-                b.BureauID,
-                f.Fachabteilung,
-                l.Standort,
-                sc.Bemerkung AS BureauBemerkung
+                f.Fachabteilung
             FROM printernames pn
             LEFT JOIN printerslots ps ON pn.PrinterName = ps.PrinterName
             LEFT JOIN slot_caridocs sc
@@ -92,12 +86,30 @@ class SlotCariDoc(BaseView):
                 command=lambda: self.go_back(app)
             )
             self.back_button.pack(side="top", fill="x", padx=5, pady=5)
+
+            ### change column headers to show filtered printer name
+            self.columns = [
+                "CARIdoc", "SlotName", "PaperFormat",
+                "TwoSided", "Autoprint", "SlotBemerkung", "Fachabteilung"
+            ]
+            ### refresh view to apply changes in columns
+            app.refresh_view()
+
     
     def on_view_hidden(self, app):
         """Called when view is hidden - cleanup"""
         if self.back_button:
             self.back_button.destroy()
             self.back_button = None
+
+            ### reset column headers
+            self.columns = [
+                "PrinterName", "PrinterModel", "SlotName", "PaperFormat",
+                "TwoSided", "Autoprint", "SlotBemerkung", "CARIdoc",
+                "Bureau", "BureauID", "Fachabteilung", "Standort",
+                "BureauBemerkung"
+            ]
+        
 
     
     def go_back(self, app):
