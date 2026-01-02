@@ -25,7 +25,7 @@ class BaseView(ABC):
         "\n".join(f"{c}: {v}" for c, v in zip(self.columns, row))
         )
 
-    def on_double_click(self, app, row, col):
+    def on_double_click(self, app, row_value, col):
         """
         Generic double-click handler:
         - row: tuple of row values
@@ -44,7 +44,7 @@ class BaseView(ABC):
         
         handler = getattr(self, action_name, None)
         if callable(handler):
-            handler(app, row, col)
+            handler(app, row_value, col)
 
 
     @abstractmethod

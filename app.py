@@ -92,10 +92,11 @@ class PrinterApp:
         
         view_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="View", menu=view_menu)
-        view_menu.add_command(label="Printer Slots", command=lambda: self.switch_view("printer slots"))
-        view_menu.add_command(label="Cari Doc Slots", command=lambda: self.switch_view("slot_cari_docs"))
         view_menu.add_command(label="Printers", command=lambda: self.switch_view("printers"))
         view_menu.add_command(label="Bureaus", command=lambda: self.switch_view("bureaus"))
+        view_menu.add_command(label="Printer Slots", command=lambda: self.switch_view("printer slots"))
+        view_menu.add_command(label="Cari Doc Slots", command=lambda: self.switch_view("slot_cari_docs"))
+        
 
     def _setup_views(self):
         """Verfügbare Views initialisieren"""
@@ -211,29 +212,52 @@ class PrinterApp:
         if not row_id or not self.current_view:
             return
 
-        row = self.tree.item(row_id, "values")
+        row_value = self.tree.item(row_id, "values")
 
         if hasattr(self.current_view, 'on_double_click'):
-            self.current_view.on_double_click(self, row_id, col_id)
+            self.current_view.on_double_click(self, row_value, col_id)
    
 
     def _show_context_menu(self, event):
-        """Kontextmenü anzeigen"""
         row_id = self.tree.identify_row(event.y)
+  
         if not row_id or not self.current_view:
             return
 
+        self.tree.selection_set(row_id)
+        row = self.tree.item(row_id, "values")
 
-        if row_id:
-            self.tree.selection_set(row_id)
-            
-            # Check if view has custom right-click handler
-            if hasattr(self.current_view, 'on_right_click'):
-                row = self.tree.item(row_id, "values")
-                self.current_view.on_right_click(self, row, event)
-            else:
-                # Show default context menu
-                self.context_menu.post(event.x_root, event.y_root)
+        # Reset menu
+        self.context_menu.delete(0, "end")
+
+        # 1️⃣ Always add base actions
+        self._add_base_context_actions(row)
+
+        # 2️⃣ Let view extend the menu
+        if hasattr(self.current_view, "extend_context_menu"):
+            self.current_view.extend_context_menu(
+                app=self,
+                menu=self.context_menu,
+                row_value=row,
+                col=self.tree.identify_column(event.x)
+            )
+
+        self.context_menu.post(event.x_root, event.y_root)
+
+
+    def _add_base_context_actions(self, row):
+        self.context_menu.add_command(
+            label="Configure",
+            command=lambda: self.current_view.configure(self, row)
+        )
+
+        self.context_menu.add_command(
+            label="Delete",
+            command=lambda: self.current_view.delete(self, row)
+        )
+
+
+    ### Globale Aktionen für Kontextmenü für alle Views ###
 
     def _configure_row(self):
         """Zeile konfigurieren"""
