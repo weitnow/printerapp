@@ -87,13 +87,13 @@ class SlotCariDoc(BaseView):
             )
             self.back_button.pack(side="top", fill="x", padx=5, pady=5)
 
-            ### change column headers to show filtered printer name
+            # change column headers to show filtered printer name
             self.columns = [
                 "CARIdoc", "SlotName", "PaperFormat",
                 "TwoSided", "Autoprint", "SlotBemerkung", "Fachabteilung"
             ]
-            ### refresh view to apply changes in columns
-            app.refresh_view()
+            # apply new columns
+            app._configure_columns()
 
     
     def on_view_hidden(self, app):

@@ -6,6 +6,9 @@ import db  # Import the db module
 class SlotPrinter(BaseView):
     name = "printer slots"
     columns = ["PrinterName", "SlotName", "PaperFormat", "TwoSided", "Autoprint", "Bemerkung"]
+    columns_actions = {
+        "#2": "show_caridocs_of_slot"
+    }
     query = """
     SELECT
         PrinterName,
@@ -39,6 +42,12 @@ class SlotPrinter(BaseView):
                 ORDER BY SlotName
             """
         return self.query
+    
+    def show_caridocs_of_slot(self, app, row_value, col):
+        """Switch to caridoc view filtered by printer name and slot name"""
+        printer_name = row_value[0]  # PrinterName is the first column
+        slot_name = row_value[1]     # SlotName is the second column
+        app.switch_view("slot_cari_docs", filter_printer=printer_name, filter_slot=slot_name)
     
     def set_filter(self, printer_name):
         """Set the printer filter"""
