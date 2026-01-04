@@ -18,11 +18,6 @@ class BureausView(BaseView):
     LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
     ORDER BY b.BureauID
     """
-    
-    def __init__(self):
-        super().__init__()
-        self.filtered_printer = None
-        self.back_button = None
 
     def get_query(self):
         """Return query, optionally filtered by printer name"""
@@ -54,27 +49,7 @@ class BureausView(BaseView):
         """Clear the printer filter"""
         self.filtered_printer = None
 
-    def on_view_shown(self, app, frame):
-        """Called when view is shown - add back button if filtered"""
-        if self.filtered_printer:
-            # Add a back button at the top
-            self.back_button = Button(
-                frame,
-                text=f"← Back to all printers (currently showing: {self.filtered_printer})",
-                command=lambda: self.go_back(app)
-            )
-            self.back_button.pack(side="top", fill="x", padx=5, pady=5)
-    
-    def on_view_hidden(self, app):
-        """Called when view is hidden - cleanup"""
-        if self.back_button:
-            self.back_button.destroy()
-            self.back_button = None
-    
-    def go_back(self, app):
-        """Go back to printers view and clear filter"""
-        self.clear_filter()
-        app.switch_view("printers")
+
 
     def delete(self, app, row):
         bureau_id = row[0]

@@ -1,6 +1,6 @@
 from .base_view import BaseView
 import sqlite3
-from tkinter import messagebox, Button
+from tkinter import messagebox
 import db  # Import the db module
 
 class SlotPrinter(BaseView):
@@ -20,11 +20,10 @@ class SlotPrinter(BaseView):
     FROM printerslots
     ORDER BY PrinterName, SlotName
     """
-
+    
     def __init__(self):
         super().__init__()
         self.filtered_printer = None
-        self.back_button = None
 
     def get_query(self):
         """Return query, optionally filtered by printer name"""
@@ -43,11 +42,7 @@ class SlotPrinter(BaseView):
             """
         return self.query
     
-    def show_caridocs_of_slot(self, app, row_value, col):
-        """Switch to caridoc view filtered by printer name and slot name"""
-        printer_name = row_value[0]  # PrinterName is the first column
-        slot_name = row_value[1]     # SlotName is the second column
-        app.switch_view("slot_cari_docs", filter_printer=printer_name, filter_slot=slot_name)
+  
     
     def set_filter(self, printer_name):
         """Set the printer filter"""
@@ -56,28 +51,6 @@ class SlotPrinter(BaseView):
     def clear_filter(self):
         """Clear the printer filter"""
         self.filtered_printer = None
-
-    def on_view_shown(self, app, frame):
-        """Called when view is shown - add back button if filtered"""
-        if self.filtered_printer:
-            # Add a back button at the top
-            self.back_button = Button(
-                frame,
-                text=f"← Back to all printers (currently showing: {self.filtered_printer})",
-                command=lambda: self.go_back(app)
-            )
-            self.back_button.pack(side="top", fill="x", padx=5, pady=5)
-    
-    def on_view_hidden(self, app):
-        """Called when view is hidden - cleanup"""
-        if self.back_button:
-            self.back_button.destroy()
-            self.back_button = None
-    
-    def go_back(self, app):
-        """Go back to printers view and clear filter"""
-        self.clear_filter()
-        app.switch_view("printers")
     
     def delete(self, app, row):
         printer_name = row[0]  # PrinterName

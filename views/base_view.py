@@ -11,6 +11,11 @@ class BaseView(ABC):
     columns: list[str] = []
     query: str = ""
 
+    def __init__(self):
+        super().__init__()
+        self.filtered_printer = None
+        self.back_button = None
+
     def fetch(self, conn):
         """Fetch data using the provided connection"""
         cur = conn.cursor()
@@ -45,6 +50,37 @@ class BaseView(ABC):
         handler = getattr(self, action_name, None)
         if callable(handler):
             handler(app, row_value, col)
+
+    ### --- methodes to switch views --- ###
+
+    #used in printers.py
+    def show_printer_slots(self, app, row_value, col):
+        """Switch to printer slots view filtered by printer name"""
+        printer_name = row_value[0]  # PrinterName is the first column
+        app.switch_view("printer slots", filter_printer=printer_name)
+
+    #used in printers.py
+    def show_caridocs(self, app, row_value, col):
+        """Switch to caridoc view filtered by printer name"""
+        printer_name = row_value[0]  # PrinterName is the first column
+        app.switch_view("slot_cari_docs", filter_printer=printer_name
+        )
+
+    #used in printers.py#
+    def show_bureaus(self, app, row_value, col):
+        """Switch to caridoc bureaus view filtered by printer name"""
+        printer_name = row_value[0]  # PrinterName is the first column
+        app.switch_view("bureaus", filter_printer=printer_name
+        )
+
+    #used in slot_printer.py
+    def show_caridocs_of_slot(self, app, row_value, col): 
+        """Switch to caridoc view filtered by printer name and slot name"""
+        printer_name = row_value[0]  # PrinterName is the first column
+        slot_name = row_value[1]     # SlotName is the second column
+        app.switch_view("slot_cari_docs", filter_printer=printer_name, filter_slot=slot_name)
+
+    ### --- --- --- --- --- --- --- --- --- ###
 
 
     @abstractmethod

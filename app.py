@@ -15,6 +15,8 @@ class PrinterApp:
         
         self.current_rows = []
         self.sort_reverse = False
+        self.navigation_history = []  # Stack to track navigation history
+        self.back_button = None  # Reference to the back button
         
         self._setup_ui()
         self._setup_views()
@@ -92,10 +94,10 @@ class PrinterApp:
         
         view_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="View", menu=view_menu)
-        view_menu.add_command(label="Printers", command=lambda: self.switch_view("printers"))
-        view_menu.add_command(label="Bureaus", command=lambda: self.switch_view("bureaus"))
-        view_menu.add_command(label="Printer Slots", command=lambda: self.switch_view("printer slots"))
-        view_menu.add_command(label="Cari Doc Slots", command=lambda: self.switch_view("slot_cari_docs"))
+        view_menu.add_command(label="Printers", command=lambda: self.switch_view("printers", clear_history=True))
+        view_menu.add_command(label="Bureaus", command=lambda: self.switch_view("bureaus", clear_history=True))
+        view_menu.add_command(label="Printer Slots", command=lambda: self.switch_view("printer slots", clear_history=True))
+        view_menu.add_command(label="Cari Doc Slots", command=lambda: self.switch_view("slot_cari_docs", clear_history=True))
         
 
     def _setup_views(self):
@@ -108,12 +110,25 @@ class PrinterApp:
         }
         self.current_view = None
 
-    def switch_view(self, view_name, **kwargs):
+    def switch_view(self, view_name, add_to_history=True, clear_history=False, **kwargs):
         """Switch to a different view with optional parameters"""
         # Check if view exists
         if view_name not in self.views:
             print(f"Warning: View '{view_name}' not found")
             return
+        
+        # Clear history if requested (e.g., when using menubar)
+        if clear_history:
+            self.navigation_history.clear()
+        
+        # Add current view to history before switching (if requested)
+        if add_to_history and self.current_view and not clear_history:
+            # Store the current view name and any relevant state
+            history_entry = {
+                'view_name': self.current_view.name if hasattr(self.current_view, 'name') else None,
+                'filter_printer': getattr(self.current_view, 'filtered_printer', None) if hasattr(self.current_view, 'filtered_printer') else None
+            }
+            self.navigation_history.append(history_entry)
         
         # Call on_view_hidden for current view
         if self.current_view and hasattr(self.current_view, 'on_view_hidden'):
@@ -141,6 +156,9 @@ class PrinterApp:
         
         self.refresh_view()
         
+        # Update back button based on history
+        self._update_back_button()
+        
         # Call on_view_shown for new view
         if hasattr(self.current_view, 'on_view_shown'):
             self.current_view.on_view_shown(self, self.dynamic_frame)
@@ -159,6 +177,54 @@ class PrinterApp:
         
         self._configure_columns()
         self._populate_tree(self.current_rows)
+    
+    def _update_back_button(self):
+        """Update back button based on navigation history"""
+        # Remove existing back button if it exists
+        if self.back_button:
+            self.back_button.destroy()
+            self.back_button = None
+        
+        # Add back button if there's history
+        if self.navigation_history:
+            last_entry = self.navigation_history[-1]
+            view_name = last_entry.get('view_name', 'previous view')
+            filter_info = ""
+            if last_entry.get('filter_printer'):
+                filter_info = f" ({last_entry['filter_printer']})"
+            
+            self.back_button = tk.Button(
+                self.dynamic_frame,
+                text=f"← Back to {view_name}{filter_info}",
+                command=self._go_back
+            )
+            self.back_button.pack(side="top", fill="x", padx=5, pady=5)
+    
+    def _go_back(self):
+        """Navigate back to previous view"""
+        if not self.navigation_history:
+            return
+        
+        # Pop the last entry from history
+        last_entry = self.navigation_history.pop()
+        
+        # Restore the previous view
+        view_name = last_entry.get('view_name')
+        if view_name:
+            # Find the actual view key (might differ from name)
+            view_key = None
+            for key, view in self.views.items():
+                if hasattr(view, 'name') and view.name == view_name:
+                    view_key = key
+                    break
+            
+            if view_key:
+                # Restore filter if applicable
+                filter_printer = last_entry.get('filter_printer')
+                if filter_printer:
+                    self.switch_view(view_key, add_to_history=False, filter_printer=filter_printer)
+                else:
+                    self.switch_view(view_key, add_to_history=False)
 
     def _configure_columns(self):
         """Treeview-Spalten konfigurieren"""

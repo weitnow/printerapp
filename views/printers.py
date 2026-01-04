@@ -28,44 +28,6 @@ class PrintersView(BaseView):
     ORDER BY p.PrinterName
     """
 
-    def extend_context_menu(self, app, menu, row_value, col):
-        printer_name = row_value[0]
-
-        menu.add_separator()
-
-        menu.add_command(
-            label="Show Printer Slots",
-            command=partial(self.show_printer_slots, app, row_value, col)
-        )
-
-        menu.add_command(
-            label="Show CARI Docs",
-            command=partial(self.show_caridocs, app, row_value, col)
-        )
-
-        menu.add_command(
-            label="Show CARI Bureaus",
-            command=partial(self.show_bureaus, app, row_value, col)
-        )
-
-
-    def show_printer_slots(self, app, row_value, col):
-        """Switch to printer slots view filtered by printer name"""
-        printer_name = row_value[0]  # PrinterName is the first column
-        app.switch_view("printer slots", filter_printer=printer_name)
-
-    def show_caridocs(self, app, row_value, col):
-        """Switch to caridoc view filtered by printer name"""
-        printer_name = row_value[0]  # PrinterName is the first column
-        app.switch_view("slot_cari_docs", filter_printer=printer_name
-        )
-
-    def show_bureaus(self, app, row_value, col):
-        """Switch to caridoc bureaus view filtered by printer name"""
-        printer_name = row_value[0]  # PrinterName is the first column
-        app.switch_view("bureaus", filter_printer=printer_name
-        )
-
     def delete(self, app, row_value):
         printer_name = row_value[0]  # PrinterName is the first column
         
