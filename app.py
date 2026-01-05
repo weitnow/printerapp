@@ -5,6 +5,7 @@ from views.printers import PrintersView
 from views.bureaus import BureausView
 from views.slot_cari_docs import SlotCariDoc
 from views.slot_printer import SlotPrinter
+from views.settings_window import SettingsWindow
 
 
 class PrinterApp:
@@ -88,17 +89,23 @@ class PrinterApp:
         self.tree.bind("<Button-3>", self._show_context_menu)
 
     def _create_menubar(self):
-        """Menüleiste erstellen"""
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
-        
+
         view_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="View", menu=view_menu)
         view_menu.add_command(label="Printers", command=lambda: self.switch_view("printers", clear_history=True))
         view_menu.add_command(label="Bureaus", command=lambda: self.switch_view("bureaus", clear_history=True))
         view_menu.add_command(label="Printer Slots", command=lambda: self.switch_view("printer slots", clear_history=True))
         view_menu.add_command(label="Cari Doc Slots", command=lambda: self.switch_view("slot_cari_docs", clear_history=True))
-        
+
+        settings_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Settings", menu=settings_menu)
+        settings_menu.add_command(
+            label="Open Settings",
+            command=lambda: SettingsWindow(self.root)
+        )
+
 
     def _setup_views(self):
         """Verfügbare Views initialisieren"""
