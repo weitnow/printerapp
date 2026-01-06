@@ -1,11 +1,11 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 import db
 from views.printers import PrintersView
 from views.bureaus import BureausView
 from views.slot_cari_docs import SlotCariDoc
 from views.slot_printer import SlotPrinter
-from views.settings_window import SettingsWindow
+import threading
 
 
 class PrinterApp:
@@ -92,6 +92,9 @@ class PrinterApp:
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
 
+        # =========================
+        # Views Menu
+        # =========================
         view_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="View", menu=view_menu)
         view_menu.add_command(label="Printers", command=lambda: self.switch_view("printers", clear_history=True))
@@ -99,12 +102,13 @@ class PrinterApp:
         view_menu.add_command(label="Printer Slots", command=lambda: self.switch_view("printer slots", clear_history=True))
         view_menu.add_command(label="Cari Doc Slots", command=lambda: self.switch_view("slot_cari_docs", clear_history=True))
 
-        settings_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Settings", menu=settings_menu)
-        settings_menu.add_command(
-            label="Open Settings",
-            command=lambda: SettingsWindow(self.root)
-        )
+        # =========================
+        # File / Actions Menu
+        # =========================
+        file_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Import XLSX", command=self._import_xlsx)
+        file_menu.add_command(label="Export XLSX", command=self._export_xlsx)
 
 
     def _setup_views(self):
@@ -343,3 +347,34 @@ class PrinterApp:
         if self.tree.selection() and self.current_view:
             row = self.tree.item(self.tree.selection()[0], "values")
             self.current_view.delete(self, row)
+
+
+    # =========================
+    # Menubar actions
+    # =========================
+    def _import_xlsx(self):
+        """Prompt user to pick an XLSX file and run the import in a thread."""
+        from xlsx_import import run_import  # import here to avoid circular dependencies
+        filename = tk.filedialog.askopenfilename(
+            title="Select Excel File",
+            filetypes=[("Excel files", "*.xlsx *.xls")]
+        )
+        if not filename:
+            return
+
+        # Run import in a separate thread to avoid freezing UI
+        def import_thread():
+            try:
+                run_import(xlsx_file=filename)
+                tk.messagebox.showinfo("Import", "✅ Import finished successfully!")
+                self.refresh_view()
+            except Exception as e:
+                tk.messagebox.showerror("Import Error", str(e))
+
+        import_thread_obj = threading.Thread(target=import_thread, daemon=True)
+        import_thread_obj.start()
+
+
+    def _export_xlsx(self):
+        """Placeholder for XLSX export"""
+        tk.messagebox.showinfo("Export", "Export action triggered (placeholder)")
