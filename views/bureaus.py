@@ -6,6 +6,9 @@ import db  # Import the db module
 class BureausView(BaseView):
     name = "bureaus"
     columns = ["BureauID", "Bureau", "Anzahl konfigurierte Slots", "Fachabteilung", "Standort"]
+    columns_actions = {
+        "#3": "show_printer_slots_from_bureaus"
+    }
     query = """
     SELECT
     b.BureauID,

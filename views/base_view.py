@@ -73,6 +73,27 @@ class BaseView(ABC):
         app.switch_view("bureaus", filter_printer=printer_name
         )
 
+    #used in bureaus.py
+    def show_printer_slots_from_bureaus(self, app, row_value, col):
+
+        #getting printer name from bureau id
+        bureau_id = row_value[0]  # BureauID is the first column
+        with db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT DISTINCT sc.PrinterName
+                FROM slot_caridocs sc
+                WHERE sc.BureauID = ?
+            """, (bureau_id,))
+            result = cur.fetchone()
+            if result:
+                printer_name = result[0]
+            else:
+                messagebox.showinfo("Info", f"No printer slots found for BureauID {bureau_id}.")
+                return
+
+        app.switch_view("printer slots", filter_printer=printer_name)
+
     #used in slot_printer.py
     def show_caridocs_of_slot(self, app, row_value, col): 
         """Switch to caridoc view filtered by printer name and slot name"""
@@ -80,7 +101,10 @@ class BaseView(ABC):
         slot_name = row_value[1]     # SlotName is the second column
         app.switch_view("slot_cari_docs", filter_printer=printer_name, filter_slot=slot_name)
 
+
+    
     ### --- --- --- --- --- --- --- --- --- ###
+
 
 
     @abstractmethod

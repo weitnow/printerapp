@@ -44,7 +44,7 @@ class SlotCariDoc(BaseView):
 
     def get_query(self):
         """Return query, optionally filtered by printer name"""
-        if self.filtered_printer:
+        if self.filtered_printer and self.filtered_slot:
             return f"""
             SELECT
                 sc.CARIdoc,
@@ -63,17 +63,20 @@ class SlotCariDoc(BaseView):
             LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
             LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
             WHERE pn.PrinterName = '{self.filtered_printer}'
+            AND ps.SlotName = '{self.filtered_slot}'
             ORDER BY ps.SlotName                  
             """
         return self.query
     
-    def set_filter(self, printer_name):
-        """Set the printer filter"""
+    def set_filter(self, printer_name=None, slot_name=None):
+        """Set the printer and slot filters"""
         self.filtered_printer = printer_name
+        self.filtered_slot = slot_name
     
     def clear_filter(self):
         """Clear the printer filter"""
         self.filtered_printer = None
+        self.filtered_slot = None
 
     def on_view_shown(self, app, frame):
         """Called when view is shown - update columns if filtered"""

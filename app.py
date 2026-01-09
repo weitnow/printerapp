@@ -161,10 +161,20 @@ class PrinterApp:
         
         target_view = self.views[view_name]
         
-        if 'filter_printer' in kwargs and hasattr(target_view, 'set_filter'):
+        if 'filter_printer' in kwargs and 'filter_slot' in kwargs and hasattr(target_view, 'set_filter'):
+            target_view.set_filter(
+                printer_name=kwargs.get('filter_printer'),
+                slot_name=kwargs.get('filter_slot')
+            )
+        elif 'filter_printer' in kwargs and hasattr(target_view, 'set_filter'):
             target_view.set_filter(kwargs['filter_printer'])
         elif hasattr(target_view, 'clear_filter'):
             target_view.clear_filter()
+
+        
+      
+
+        
         
         self.current_view = target_view
         self.filter_entry.delete(0, tk.END)
