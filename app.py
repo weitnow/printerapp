@@ -341,8 +341,8 @@ class PrinterApp:
     def _add_base_context_actions(self, row: Tuple) -> None:
         """Add base context menu actions"""
         self.context_menu.add_command(
-            label="Configure",
-            command=partial(self.current_view.configure, self, row)
+            label="Show details",
+            command=partial(self.current_view.show_details, self, row)
         )
         self.context_menu.add_command(
             label="Delete",

@@ -23,10 +23,10 @@ class BaseView(ABC):
         return cur.fetchall() #
 
 
-    def configure(self, app, row):
+    def show_details(self, app, row):
         """Default configure implementation - can be overridden"""
         messagebox.showinfo(
-        "Configure",
+        "Details",
         "\n".join(f"{c}: {v}" for c, v in zip(self.columns, row))
         )
 
