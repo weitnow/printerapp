@@ -43,7 +43,6 @@ class SlotCariDoc(BaseView):
         self.filtered_printer = None
 
     def get_query(self):
-        """Return query, optionally filtered by printer name"""
         if self.filtered_printer and self.filtered_slot:
             return f"""
             SELECT
@@ -63,9 +62,31 @@ class SlotCariDoc(BaseView):
             LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
             LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
             WHERE pn.PrinterName = '{self.filtered_printer}'
-            AND ps.SlotName = '{self.filtered_slot}'
+              AND ps.SlotName = '{self.filtered_slot}'
             ORDER BY ps.SlotName                  
             """
+        elif self.filtered_printer:
+            return f"""
+            SELECT
+                sc.CARIdoc,
+                ps.SlotName,
+                ps.PaperFormat,
+                ps.TwoSided,
+                ps.Autoprint,
+                ps.Bemerkung AS SlotBemerkung,
+                f.Fachabteilung
+            FROM printernames pn
+            LEFT JOIN printerslots ps ON pn.PrinterName = ps.PrinterName
+            LEFT JOIN slot_caridocs sc
+                ON ps.PrinterName = sc.PrinterName
+                AND ps.SlotName = sc.SlotName
+            LEFT JOIN bureaus b ON sc.BureauID = b.BureauID
+            LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
+            LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
+            WHERE pn.PrinterName = '{self.filtered_printer}'
+            ORDER BY ps.SlotName                  
+            """
+        # otherwise return full query
         return self.query
     
     def set_filter(self, printer_name=None, slot_name=None):

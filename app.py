@@ -172,10 +172,6 @@ class PrinterApp:
             target_view.clear_filter()
 
         
-      
-
-        
-        
         self.current_view = target_view
         self.filter_entry.delete(0, tk.END)
         
