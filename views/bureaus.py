@@ -5,12 +5,22 @@ import db  # Import the db module
 
 class BureausView(BaseView):
     name = "bureaus"
-    columns = ["BureauID", "Bureau", "Anzahl konfigurierte Slots", "Fachabteilung", "Standort"]
+    columns = ["BureauID", "Bureau", "printerslots*", "Fachabteilung", "Standort"]
+    columns_actions = {
+        "#3": "show_caridocs_from_bureaus"
+    }
     query = """
     SELECT
     b.BureauID,
     b.Bureau,
-    (SELECT COUNT(*) FROM slot_caridocs sc WHERE sc.BureauID = b.BureauID) AS 'Anzahl konfigurierte Slots',
+    (
+        SELECT COUNT(*) 
+        FROM (
+            SELECT DISTINCT SlotName, CARIdoc, PrinterName
+            FROM slot_caridocs sc 
+            WHERE sc.BureauID = b.BureauID
+            )
+    ) AS 'Anzahl CARI-Docs',
     f.Fachabteilung,
     l.Standort
     FROM bureaus b
@@ -26,7 +36,14 @@ class BureausView(BaseView):
                 SELECT
                     b.BureauID,
                     b.Bureau,
-                    (SELECT COUNT(*) FROM slot_caridocs sc WHERE sc.BureauID = b.BureauID) AS 'Anzahl konfigurierte Slots',
+                    (
+                        SELECT COUNT(*) 
+                        FROM (
+                            SELECT DISTINCT SlotName, CARIdoc, PrinterName
+                            FROM slot_caridocs sc 
+                            WHERE sc.BureauID = b.BureauID
+                            )
+                    ) AS 'Anzahl CARI-Docs',
                     f.Fachabteilung,
                     l.Standort
                 FROM bureaus b

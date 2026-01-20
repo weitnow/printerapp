@@ -23,10 +23,10 @@ class BaseView(ABC):
         return cur.fetchall() #
 
 
-    def configure(self, app, row):
+    def show_details(self, app, row):
         """Default configure implementation - can be overridden"""
         messagebox.showinfo(
-        "Configure",
+        "Details",
         "\n".join(f"{c}: {v}" for c, v in zip(self.columns, row))
         )
 
@@ -73,6 +73,29 @@ class BaseView(ABC):
         app.switch_view("bureaus", filter_printer=printer_name
         )
 
+    #used in bureaus.py
+    def show_caridocs_from_bureaus(self, app, row_value, col):
+        """Switch to caridoc view filtered by printer name"""
+        
+        #getting printer_name from bureau id
+        bureau_id = row_value[0] # BureauID is the first column
+
+        with db.get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT DISTINCT sc.PrinterName
+                FROM slot_caridocs sc
+                WHERE sc.BureauID = ?
+            """, (bureau_id,))
+            result = cur.fetchone()
+            if result:
+                printer_name = result[0]
+            else:
+                messagebox.showinfo("Info", f"No printer slots found for BureauID {bureau_id}.")
+                return
+
+        app.switch_view("slot_cari_docs", filter_printer=printer_name, show_printer_in_nav_history = False)
+
     #used in slot_printer.py
     def show_caridocs_of_slot(self, app, row_value, col): 
         """Switch to caridoc view filtered by printer name and slot name"""
@@ -80,7 +103,14 @@ class BaseView(ABC):
         slot_name = row_value[1]     # SlotName is the second column
         app.switch_view("slot_cari_docs", filter_printer=printer_name, filter_slot=slot_name)
 
+    #used in slot_cari_docs.py
+    def show_printer_slots_from_slot_cari_docs(self, app, row_value, col):
+        printer_name = row_value[7] # PrinterName is the 8 colum
+        slot_name = row_value[1]    # SlotName is the second column
+        app.switch_view("slot_cari_docs", filter_printer=printer_name, filter_slot=slot_name)
+    
     ### --- --- --- --- --- --- --- --- --- ###
+
 
 
     @abstractmethod

@@ -5,7 +5,7 @@ import db  # Import the db module
 
 class SlotPrinter(BaseView):
     name = "printer slots"
-    columns = ["PrinterName", "SlotName", "PaperFormat", "TwoSided", "Autoprint", "Bemerkung"]
+    columns = ["PrinterName", "SlotName*", "PaperFormat", "TwoSided", "Autoprint", "Bemerkung"]
     columns_actions = {
         "#2": "show_caridocs_of_slot"
     }

@@ -9,24 +9,47 @@ from functools import partial
 # =====================
 class PrintersView(BaseView):
     name = "printers"
-    columns = ["PrinterName", "Anzahl konfigurierte Slots", "Anzahl zugewiesene CARI-Docs", "Anzahl zugewiesene Bureaus", "PrinterModel", "Standort"]
+    columns = ["PrinterName", "printerslots*", "CARIdocs*", "Bureaus*", "PrinterModel", "Standort"]
     columns_actions = {
         "#2": "show_printer_slots",
         "#3": "show_caridocs",  
         "#4": "show_bureaus"  
     }
     query = """
-    SELECT 
-    p.PrinterName,
-    (SELECT COUNT(*) FROM printerslots ps WHERE ps.PrinterName = p.PrinterName) AS 'Anzahl Slots',
-    (SELECT COUNT(*) FROM slot_caridocs sc WHERE sc.PrinterName = p.PrinterName) AS 'Anzahl CARI-Docs',
-    (SELECT COUNT(DISTINCT sc.BureauID) FROM slot_caridocs sc WHERE sc.PrinterName = p.PrinterName) AS 'Anzahl Bureaus',
-    p.PrinterModel,
-    l.Standort
+         SELECT 
+        p.PrinterName,
+
+        -- Anzahl Slots
+        (
+            SELECT COUNT(*)
+            FROM printerslots ps
+            WHERE ps.PrinterName = p.PrinterName
+        ) AS "Anzahl Slots",
+
+        -- Anzahl CARI-Docs (DISTINCT über mehrere Spalten)
+        (
+            SELECT COUNT(*)
+            FROM (
+                SELECT DISTINCT SlotName, CARIdoc
+                FROM slot_caridocs sc
+                WHERE sc.PrinterName = p.PrinterName
+            )
+        ) AS "Anzahl CARI-Docs",
+
+        -- Anzahl Bureaus (distinct BureauID)
+        (
+            SELECT COUNT(DISTINCT sc.BureauID)
+            FROM slot_caridocs sc
+            WHERE sc.PrinterName = p.PrinterName
+        ) AS "Anzahl Bureaus",
+
+        p.PrinterModel,
+        l.Standort
+
     FROM printernames p
     LEFT JOIN lieugestion l ON p.StandortID = l.StandortID
-    ORDER BY p.PrinterName
-    """
+    ORDER BY p.PrinterName;
+        """
 
     def delete(self, app, row_value):
         printer_name = row_value[0]  # PrinterName is the first column

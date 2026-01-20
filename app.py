@@ -1,44 +1,50 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog, messagebox
 import db
 from views.printers import PrintersView
 from views.bureaus import BureausView
 from views.slot_cari_docs import SlotCariDoc
 from views.slot_printer import SlotPrinter
-from views.settings_window import SettingsWindow
+import threading
+from typing import List, Tuple, Dict, Any, Optional
+from functools import partial
 
 
 class PrinterApp:
-    def __init__(self, root):
+    def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Printer Database")
         self.root.geometry("1500x700")
         
-        self.current_rows = []
-        self.sort_reverse = False
-        self.navigation_history = []  # Stack to track navigation history
-        self.back_button = None  # Reference to the back button
+        self.current_rows: List[Tuple] = []
+        self.sort_reverse: bool = False
+        self.navigation_history: List[Dict[str, Any]] = []
+        self.current_item = "Printer1234" # optionaly use this for show a string with info in navigation_history
+        self.back_button: Optional[tk.Button] = None
+        self.current_view = ""
         
         self._setup_ui()
         self._setup_views()
         self.switch_view("printers")
 
-    def _setup_ui(self):
-        """UI-Komponenten erstellen"""
+    def _setup_ui(self) -> None:
+        """Create UI components"""
         main_frame = tk.Frame(self.root)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        # Container for dynamic content (like back button)
+        # Store main_frame reference for repacking dynamic_frame later
+        self.main_frame = main_frame
+        
         self.dynamic_frame = tk.Frame(main_frame)
-        self.dynamic_frame.pack(fill="x")
+        # Don't pack it initially - will be packed when needed
         
         self._create_filter_bar(main_frame)
         self._create_treeview(main_frame)
         self._create_context_menu()
         self._create_menubar()
 
-    def _create_filter_bar(self, parent):
-        """Filter-Leiste erstellen"""
+    def _create_filter_bar(self, parent: tk.Frame) -> None:
+        """Create filter bar with search and dropdown"""
         frame = tk.Frame(parent)
         frame.pack(fill="x")
         
@@ -49,151 +55,171 @@ class PrinterApp:
         self.filter_entry.bind("<KeyRelease>", self._apply_filter)
         
         self.filter_column = tk.StringVar()
-        self.filter_dropdown = ttk.Combobox(frame, textvariable=self.filter_column, state="readonly")
+        self.filter_dropdown = ttk.Combobox(
+            frame, 
+            textvariable=self.filter_column, 
+            state="readonly"
+        )
         self.filter_dropdown.pack(side="left")
         self.filter_dropdown.bind("<<ComboboxSelected>>", self._apply_filter)
         
-        # Zähler für angezeigte Zeilen
         self.count_label = tk.Label(frame, text="Total: 0")
         self.count_label.pack(side="left", padx=(10, 0))
 
-    def _create_treeview(self, parent):
-        """Treeview mit Scrollbars erstellen"""
+    def _create_treeview(self, parent: tk.Frame) -> None:
+        """Create treeview with scrollbars"""
         frame = tk.Frame(parent)
         frame.pack(fill="both", expand=True)
         
-        # Scrollbars zuerst erstellen
         v_scroll = ttk.Scrollbar(frame, orient="vertical")
         v_scroll.pack(side="right", fill="y")
         
         h_scroll = ttk.Scrollbar(frame, orient="horizontal")
         h_scroll.pack(side="bottom", fill="x")
         
-        # Treeview mit Scrollbars verknüpfen
-        self.tree = ttk.Treeview(frame, show="headings", 
-                                 yscrollcommand=v_scroll.set,
-                                 xscrollcommand=h_scroll.set)
+        self.tree = ttk.Treeview(
+            frame, 
+            show="headings",
+            yscrollcommand=v_scroll.set,
+            xscrollcommand=h_scroll.set
+        )
         self.tree.pack(side="left", fill="both", expand=True)
         
         v_scroll.config(command=self.tree.yview)
         h_scroll.config(command=self.tree.xview)
         
-        # Event bindings for double-click
-        self.tree.bind("<Double-Button-1>", self._on_double_click)
+        self.tree.bind("<Double-1>", self._on_double_click)
 
-    def _create_context_menu(self):
-        """Rechtsklick-Menü erstellen"""
+    def _create_context_menu(self) -> None:
+        """Create right-click context menu"""
         self.context_menu = tk.Menu(self.root, tearoff=0)
-        self.context_menu.add_command(label="Configure", command=self._configure_row)
-        self.context_menu.add_command(label="Delete", command=self._delete_row)
         self.tree.bind("<Button-3>", self._show_context_menu)
 
-    def _create_menubar(self):
+    def _create_menubar(self) -> None:
+        """Create application menubar"""
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
-
+        
+        # View Menu
         view_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="View", menu=view_menu)
-        view_menu.add_command(label="Printers", command=lambda: self.switch_view("printers", clear_history=True))
-        view_menu.add_command(label="Bureaus", command=lambda: self.switch_view("bureaus", clear_history=True))
-        view_menu.add_command(label="Printer Slots", command=lambda: self.switch_view("printer slots", clear_history=True))
-        view_menu.add_command(label="Cari Doc Slots", command=lambda: self.switch_view("slot_cari_docs", clear_history=True))
-
-        settings_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Settings", menu=settings_menu)
-        settings_menu.add_command(
-            label="Open Settings",
-            command=lambda: SettingsWindow(self.root)
+        view_menu.add_command(
+            label="Printers", 
+            command=partial(self.switch_view, "printers", clear_history=True)
         )
+        view_menu.add_command(
+            label="Bureaus", 
+            command=partial(self.switch_view, "bureaus", clear_history=True)
+        )
+        view_menu.add_command(
+            label="Printer Slots", 
+            command=partial(self.switch_view, "printer slots", clear_history=True)
+        )
+        view_menu.add_command(
+            label="Cari Doc Slots", 
+            command=partial(self.switch_view, "slot_cari_docs", clear_history=True)
+        )
+        
+        # File Menu
+        file_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Import XLSX", command=self._import_xlsx)
+        file_menu.add_command(label="Export XLSX", command=self._export_xlsx)
 
-
-    def _setup_views(self):
-        """Verfügbare Views initialisieren"""
+    def _setup_views(self) -> None:
+        """Initialize available views"""
         self.views = {
             "printers": PrintersView(),
             "bureaus": BureausView(),
             "printer slots": SlotPrinter(),
             "slot_cari_docs": SlotCariDoc(),
         }
-        self.current_view = None
 
-    def switch_view(self, view_name, add_to_history=True, clear_history=False, **kwargs):
+    def switch_view(
+        self, 
+        view_name: str, 
+        add_to_history: bool = True, 
+        clear_history: bool = False, 
+        **kwargs
+    ) -> None:
         """Switch to a different view with optional parameters"""
-        # Check if view exists
         if view_name not in self.views:
             print(f"Warning: View '{view_name}' not found")
             return
         
-        # Clear history if requested (e.g., when using menubar)
         if clear_history:
+            self.current_item = ""
             self.navigation_history.clear()
         
-        # Add current view to history before switching (if requested)
         if add_to_history and self.current_view and not clear_history:
-            # Store the current view name and any relevant state
             history_entry = {
-                'view_name': self.current_view.name if hasattr(self.current_view, 'name') else None,
-                'filter_printer': getattr(self.current_view, 'filtered_printer', None) if hasattr(self.current_view, 'filtered_printer') else None
+                'view_name': getattr(self.current_view, 'name', None),
+                'filter_printer': None, #getattr(self.current_view, 'filtered_printer', None),
+                'optional_info': self.current_item
             }
             self.navigation_history.append(history_entry)
         
-        # Call on_view_hidden for current view
         if self.current_view and hasattr(self.current_view, 'on_view_hidden'):
             self.current_view.on_view_hidden(self)
         
-        # Get the target view
         target_view = self.views[view_name]
         
-        # Handle filter parameter for printer slots
-        if 'filter_printer' in kwargs and hasattr(target_view, 'set_filter'):
+        if 'filter_printer' in kwargs and 'filter_slot' in kwargs and hasattr(target_view, 'set_filter'):
+            if kwargs["show_printer_in_nav_history"] != False:
+                self.current_item = kwargs["filter_printer"]
+            target_view.set_filter(
+                printer_name=kwargs.get('filter_printer'),
+                slot_name=kwargs.get('filter_slot')
+            )
+        elif 'filter_printer' in kwargs and hasattr(target_view, 'set_filter'):
+            self.current_item = kwargs["filter_printer"]
             target_view.set_filter(kwargs['filter_printer'])
         elif hasattr(target_view, 'clear_filter'):
-            # Clear filter if switching without filter parameter
             target_view.clear_filter()
+
         
-        # Switch to the view
         self.current_view = target_view
         self.filter_entry.delete(0, tk.END)
         
-        # Filter-Dropdown aktualisieren
         columns = self.current_view.columns
         self.filter_dropdown["values"] = columns
         if columns:
             self.filter_column.set(columns[0])
         
         self.refresh_view()
-        
-        # Update back button based on history
         self._update_back_button()
         
-        # Call on_view_shown for new view
         if hasattr(self.current_view, 'on_view_shown'):
             self.current_view.on_view_shown(self, self.dynamic_frame)
 
-    def refresh_view(self):
-        """Daten neu laden und Treeview aktualisieren"""
-        with db.get_connection() as conn:
-            # Use get_query if available (for filtered views)
-            if hasattr(self.current_view, 'get_query'):
-                query = self.current_view.get_query()
-                cursor = conn.cursor()
-                cursor.execute(query)
-                self.current_rows = cursor.fetchall()
-            else:
-                self.current_rows = self.current_view.fetch(conn)
-        
-        self._configure_columns()
-        self._populate_tree(self.current_rows)
-    
-    def _update_back_button(self):
+    def refresh_view(self) -> None:
+        """Reload data and update treeview"""
+        try:
+            with db.get_connection() as conn:
+                if hasattr(self.current_view, 'get_query'):
+                    query = self.current_view.get_query()
+                    cursor = conn.cursor()
+                    cursor.execute(query)
+                    self.current_rows = cursor.fetchall()
+                else:
+                    self.current_rows = self.current_view.fetch(conn)
+            
+            self._configure_columns()
+            self._populate_tree(self.current_rows)
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to load data:\n{str(e)}")
+            self.current_rows = []
+
+    def _update_back_button(self) -> None:
         """Update back button based on navigation history"""
-        # Remove existing back button if it exists
         if self.back_button:
             self.back_button.destroy()
             self.back_button = None
         
-        # Add back button if there's history
         if self.navigation_history:
+            # Ensure dynamic_frame is packed before the filter_bar
+            self.dynamic_frame.pack(fill="x", before=self.main_frame.winfo_children()[1])
+            
             last_entry = self.navigation_history[-1]
             view_name = last_entry.get('view_name', 'previous view')
             filter_info = ""
@@ -202,49 +228,58 @@ class PrinterApp:
             
             self.back_button = tk.Button(
                 self.dynamic_frame,
-                text=f"← Back to {view_name}{filter_info}",
+                text=f"← Back to {view_name}{filter_info} {self.current_item}",
                 command=self._go_back
             )
             self.back_button.pack(side="top", fill="x", padx=5, pady=5)
-    
-    def _go_back(self):
+        else:
+            # No history, hide the dynamic frame to remove the gap
+            self.dynamic_frame.pack_forget()
+
+    def _go_back(self) -> None:
         """Navigate back to previous view"""
         if not self.navigation_history:
             return
         
-        # Pop the last entry from history
         last_entry = self.navigation_history.pop()
-        
-        # Restore the previous view
         view_name = last_entry.get('view_name')
-        if view_name:
-            # Find the actual view key (might differ from name)
-            view_key = None
-            for key, view in self.views.items():
-                if hasattr(view, 'name') and view.name == view_name:
-                    view_key = key
-                    break
-            
-            if view_key:
-                # Restore filter if applicable
-                filter_printer = last_entry.get('filter_printer')
-                if filter_printer:
-                    self.switch_view(view_key, add_to_history=False, filter_printer=filter_printer)
-                else:
-                    self.switch_view(view_key, add_to_history=False)
+        
+        if not view_name:
+            return
+        
+        view_key = self._find_view_key_by_name(view_name)
+        if not view_key:
+            return
+        
+        filter_printer = last_entry.get('filter_printer')
+        if filter_printer:
+            self.switch_view(view_key, add_to_history=False, filter_printer=filter_printer)
+        else:
+            self.switch_view(view_key, add_to_history=False)
 
-    def _configure_columns(self):
-        """Treeview-Spalten konfigurieren"""
+    def _find_view_key_by_name(self, view_name: str) -> Optional[str]:
+        """Find view key by view name"""
+        for key, view in self.views.items():
+            if hasattr(view, 'name') and view.name == view_name:
+                return key
+        return None
+
+    def _configure_columns(self) -> None:
+        """Configure treeview columns"""
         columns = self.current_view.columns
         self.tree["columns"] = columns
         
         for col in columns:
-            self.tree.heading(col, text=col, anchor="w", 
-                            command=lambda c=col: self._sort_by_column(c))
+            self.tree.heading(
+                col, 
+                text=col, 
+                anchor="w",
+                command=partial(self._sort_by_column, col)
+            )
             self.tree.column(col, anchor="w", width=120, minwidth=50, stretch=True)
 
-    def _populate_tree(self, rows):
-        """Treeview mit Daten füllen (Zebra-Styling)"""
+    def _populate_tree(self, rows: List[Tuple]) -> None:
+        """Fill treeview with data (zebra styling)"""
         self.tree.delete(*self.tree.get_children())
         
         for i, row in enumerate(rows):
@@ -254,18 +289,17 @@ class PrinterApp:
         self.tree.tag_configure("even", background="white")
         self.tree.tag_configure("odd", background="#f2f2f2")
         
-        # Zähler aktualisieren
         self.count_label.config(text=f"Total: {len(rows)}")
 
-    def _sort_by_column(self, column):
-        """Nach Spalte sortieren"""
+    def _sort_by_column(self, column: str) -> None:
+        """Sort by column"""
         idx = self.current_view.columns.index(column)
         self.current_rows.sort(key=lambda row: row[idx], reverse=self.sort_reverse)
         self.sort_reverse = not self.sort_reverse
         self._apply_filter()
 
-    def _apply_filter(self, event=None):
-        """Filter anwenden"""
+    def _apply_filter(self, event=None) -> None:
+        """Apply filter to displayed rows"""
         filter_text = self.filter_entry.get().lower()
         column = self.filter_column.get()
         
@@ -274,39 +308,38 @@ class PrinterApp:
             return
         
         idx = self.current_view.columns.index(column)
-        filtered = [row for row in self.current_rows 
-                   if filter_text in str(row[idx]).lower()]
+        filtered = [
+            row for row in self.current_rows 
+            if filter_text in str(row[idx]).lower()
+        ]
         self._populate_tree(filtered)
 
-    def _on_double_click(self, event):
+    def _on_double_click(self, event) -> None:
+        """Handle double-click on treeview row"""
         row_id = self.tree.identify_row(event.y)
         col_id = self.tree.identify_column(event.x)
-
+        
         if not row_id or not self.current_view:
             return
-
+        
         row_value = self.tree.item(row_id, "values")
-
+        
         if hasattr(self.current_view, 'on_double_click'):
             self.current_view.on_double_click(self, row_value, col_id)
-   
 
-    def _show_context_menu(self, event):
+    def _show_context_menu(self, event) -> None:
+        """Show context menu on right-click"""
         row_id = self.tree.identify_row(event.y)
-  
+        
         if not row_id or not self.current_view:
             return
-
+        
         self.tree.selection_set(row_id)
         row = self.tree.item(row_id, "values")
-
-        # Reset menu
+        
         self.context_menu.delete(0, "end")
-
-        # 1️⃣ Always add base actions
         self._add_base_context_actions(row)
-
-        # 2️⃣ Let view extend the menu
+        
         if hasattr(self.current_view, "extend_context_menu"):
             self.current_view.extend_context_menu(
                 app=self,
@@ -314,32 +347,151 @@ class PrinterApp:
                 row_value=row,
                 col=self.tree.identify_column(event.x)
             )
-
+        
         self.context_menu.post(event.x_root, event.y_root)
 
-
-    def _add_base_context_actions(self, row):
+    def _add_base_context_actions(self, row: Tuple) -> None:
+        """Add base context menu actions"""
         self.context_menu.add_command(
-            label="Configure",
-            command=lambda: self.current_view.configure(self, row)
+            label="Show details",
+            command=partial(self.current_view.show_details, self, row)
         )
-
         self.context_menu.add_command(
             label="Delete",
-            command=lambda: self.current_view.delete(self, row)
+            command=partial(self.current_view.delete, self, row)
         )
 
+    def _run_in_thread(self, target_func, success_message: str, error_title: str) -> None:
+        """Run a function in a separate thread with error handling"""
+        def thread_wrapper():
+            try:
+                result = target_func()
+                if isinstance(result, tuple):
+                    success, message, *extra = result
+                    if success:
+                        messagebox.showinfo("Success", message)
+                    else:
+                        messagebox.showerror(error_title, message)
+                else:
+                    messagebox.showinfo("Success", success_message)
+                
+                self.refresh_view()
+            except Exception as e:
+                messagebox.showerror(error_title, f"Error: {str(e)}")
+        
+        thread = threading.Thread(target=thread_wrapper, daemon=True)
+        thread.start()
 
-    ### Globale Aktionen für Kontextmenü für alle Views ###
+    def _import_xlsx(self) -> None:
+        """Prompt user to pick an XLSX file and run the import"""
+        filename = filedialog.askopenfilename(
+            title="Select Excel File",
+            filetypes=[("Excel files", "*.xlsx *.xls")]
+        )
+        
+        if not filename:
+            return
+        
+        from xlsx_import import run_import
+        import pandas as pd
+        
+        try:
+            # Step 1: Run dry-run validation
+            self.root.config(cursor="watch")
+            self.root.update()
+            
+            run_import(xlsx_file=filename, dry_run=True)
+            
+            # Step 2: If dry-run passed, ask for confirmation
+            self.root.config(cursor="")
+            
+            response = messagebox.askokcancel(
+                "Import Validation Passed",
+                "✅ Dry-run validation successful!\n\n"
+                "⚠️ WARNING: Importing will override all existing data in the database!\n\n"
+                "All current printers, bureaus, and related data will be replaced.\n\n"
+                "Do you want to proceed with the actual import?",
+                icon='warning'
+            )
+            
+            if not response:
+                return
+            
+            # Step 3: Count rows from Excel file
+            df_printers = pd.read_excel(filename, sheet_name=0)
+            df_forms = pd.read_excel(filename, sheet_name=1)
+            total_printer_rows = len(df_printers)
+            total_form_rows = len(df_forms)
+            
+            # Step 4: Run actual import
+            self.root.config(cursor="watch")
+            self.root.update()
+            
+            run_import(xlsx_file=filename, dry_run=False)
+            
+            success_msg = (
+                f"✅ Import finished successfully!\n\n"
+                f"📊 Import Statistics:\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"Printer sheet rows: {total_printer_rows}\n"
+                f"Forms sheet rows: {total_form_rows}\n"
+                f"Total rows imported: {total_printer_rows + total_form_rows}"
+            )
+            
+            messagebox.showinfo("Success", success_msg)
+            self.refresh_view()
+            
+        except Exception as e:
+            messagebox.showerror("Import Error", f"Error: {str(e)}")
+        finally:
+            # Re-enable the root window
+            self.root.config(cursor="")
 
-    def _configure_row(self):
-        """Zeile konfigurieren"""
-        if self.tree.selection() and self.current_view:
-            row = self.tree.item(self.tree.selection()[0], "values")
-            self.current_view.configure(self, row)
+    def _export_xlsx(self) -> None:
+        """Prompt user for export location and run the export"""
+        from xlsx_export import export_printer_data
+        
+        filename = filedialog.asksaveasfilename(
+            title="Save Excel Export As",
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx")],
+            initialfile="Druckerliste_CARI_export.xlsx"
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            # Disable the root window to prevent interaction
+            self.root.config(cursor="watch")
+            self.root.update()
+            
+            db_file = "printers.db"
+            success, message, stats = export_printer_data(
+                db_file=db_file,
+                output_xlsx=filename
+            )
+            
+            if success:
+                stats_msg = (
+                    f"{message}\n\n"
+                    f"📊 Export Statistics:\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"Total rows: {stats['total_rows']}\n"
+                    f" • Bureau-printer connections: {stats['bureau_printer_connections']}\n"
+                    f" • Printers without bureaus: {stats['printers_without_bureaus']}\n"
+                    f" • Bureaus without printers: {stats['bureaus_without_printers']}\n\n"
+                    f"Total CARIdocs: {stats['total_caridocs']}"
+                )
+                messagebox.showinfo("Success", stats_msg)
+            else:
+                messagebox.showerror("Export Error", message)
+            
+            self.refresh_view()
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Error: {str(e)}")
+        finally:
+            # Re-enable the root window
+            self.root.config(cursor="")
 
-    def _delete_row(self):
-        """Zeile löschen"""
-        if self.tree.selection() and self.current_view:
-            row = self.tree.item(self.tree.selection()[0], "values")
-            self.current_view.delete(self, row)
+    

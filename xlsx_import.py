@@ -6,7 +6,10 @@ import sqlite3
 # Public API (used by Tkinter)
 # ============================================================
 
-def run_import(xlsx_file: str, db_file: str = "printers.db") -> None:
+def run_import(
+        xlsx_file: str, 
+        db_file: str = "printers.db",
+        dry_run: bool = False) -> None:
     """
     Import printer data from XLSX into SQLite database.
 
@@ -15,7 +18,7 @@ def run_import(xlsx_file: str, db_file: str = "printers.db") -> None:
         Any other exception on unexpected failure
     """
     try:
-        _run_import_internal(xlsx_file, db_file)
+        _run_import_internal(xlsx_file, db_file, dry_run)
     except Exception:
         # Let caller (GUI / CLI) decide how to handle it
         raise
@@ -25,7 +28,7 @@ def run_import(xlsx_file: str, db_file: str = "printers.db") -> None:
 # Internal implementation
 # ============================================================
 
-def _run_import_internal(xlsx_file: str, db_file: str) -> None:
+def _run_import_internal(xlsx_file: str, db_file: str, dry_run: bool) -> None:
     sheet_name_printers = 0
     sheet_name_forms = 1
 
@@ -34,14 +37,23 @@ def _run_import_internal(xlsx_file: str, db_file: str) -> None:
     df_forms = pd.read_excel(xlsx_file, sheet_name=sheet_name_forms)
 
     # --- STEP 2: Connect to SQLite ---
+    #conn = sqlite3.connect(db_file)
+    #cursor = conn.cursor()
+    #conn.execute("PRAGMA foreign_keys = ON;")
+
     conn = sqlite3.connect(db_file)
+    conn.isolation_level = None   # manual transaction control
     cursor = conn.cursor()
-    conn.execute("PRAGMA foreign_keys = ON;")
+
+    cursor.execute("PRAGMA foreign_keys = ON;")
+    cursor.execute("BEGIN")
+
 
     try:
         _drop_tables(cursor)
         _create_schema(cursor)
 
+        _import_druckeinlagen(cursor, df_forms)
         _import_caridocs(cursor, df_forms)
         standort_map = _import_standorte(cursor, df_printers)
         fach_map = _import_fachabteilungen(cursor, df_printers)
@@ -53,7 +65,12 @@ def _run_import_internal(xlsx_file: str, db_file: str) -> None:
         _validate_printer_standorte(cursor)
         _update_printer_standorte(cursor, df_printers, standort_map)
 
-        conn.commit()
+        #conn.commit()
+        if dry_run:
+            conn.rollback()
+            print("🧪 Dry-Run completed – no changes written to database.")
+        else:
+            conn.commit()
 
     except Exception:
         conn.rollback()
@@ -167,15 +184,51 @@ def _create_schema(cursor):
 # Import helpers
 # ============================================================
 
-def _import_caridocs(cursor, df):
-    for _, row in df.iterrows():
-        caridoc = row.get("Formular")
-        if pd.isna(caridoc):
+def _import_druckeinlagen(cursor, df):
+    """
+    Import all unique 'Format Druckeinlage' values
+    into table druckeinlage before caridocs import.
+    """
+    unique = (
+        df[["Format Druckeinlage"]]
+        .dropna()
+        .drop_duplicates()
+    )
+
+    for _, row in unique.iterrows():
+        value = str(row["Format Druckeinlage"]).strip()
+        if value == "":
             continue
 
         cursor.execute(
-            "INSERT OR IGNORE INTO caridocs (CARIdoc) VALUES (?)",
-            (caridoc,)
+            """
+            INSERT OR IGNORE INTO druckeinlage (FormatDruckeinlage)
+            VALUES (?)
+            """,
+            (value,)
+        )
+
+
+def _import_caridocs(cursor, df):
+    for _, row in df.iterrows():
+        caridoc = row.get("Formular")
+        format_caridoc = row.get("Format CARI-Doc")
+        format_druckeinlage = row.get("Format Druckeinlage")
+        beschreibung_formular = row.get("Beschreibung Formular")
+
+        if pd.isna(caridoc): #checks for NaN, Non, if the value is empty -> skip this row
+            continue
+
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO caridocs (CARIdoc, FormatCARIDoc, FormatDruckeinlage, BeschreibungFormular)
+            VALUES (?, ?, ?, ?)
+            """,
+            (caridoc,
+            format_caridoc,
+            format_druckeinlage,
+            beschreibung_formular,             
+            )
         )
 
 
@@ -330,8 +383,12 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print("Usage: python master_import.py <xlsx_file>")
+        print("Usage: python master_import.py <xlsx_file> [--dry-run]")
         sys.exit(1)
 
-    run_import(sys.argv[1])
-    print("✅ Import completed successfully")
+    dry_run = "--dry-run" in sys.argv
+
+    run_import(sys.argv[1], dry_run=dry_run)
+
+    if not dry_run:
+        print("✅ Import completed successfully")
