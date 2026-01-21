@@ -50,7 +50,69 @@ class PrintersView(BaseView):
     LEFT JOIN lieugestion l ON p.StandortID = l.StandortID
     ORDER BY p.PrinterName;
         """
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.filtered_bureau = None  # Initialize the filter to None
+    
+    def get_query(self):
+        """Return query, optionally filtered by bureau id"""
+        if self.filtered_bureau:
+            return f"""
+                SELECT 
+                p.PrinterName,
 
+                -- Anzahl Slots
+                (
+                    SELECT COUNT(*)
+                    FROM printerslots ps
+                    WHERE ps.PrinterName = p.PrinterName
+                ) AS "Anzahl Slots",
+
+                -- Anzahl CARI-Docs (DISTINCT über mehrere Spalten)
+                (
+                    SELECT COUNT(*)
+                    FROM (
+                        SELECT DISTINCT SlotName, CARIdoc
+                        FROM slot_caridocs sc
+                        WHERE sc.PrinterName = p.PrinterName
+                    )
+                ) AS "Anzahl CARI-Docs",
+
+                -- Anzahl Bureaus (distinct BureauID)
+                (
+                    SELECT COUNT(DISTINCT sc.BureauID)
+                    FROM slot_caridocs sc
+                    WHERE sc.PrinterName = p.PrinterName
+                ) AS "Anzahl Bureaus",
+
+                p.PrinterModel,
+                l.Standort
+
+            FROM printernames p
+            LEFT JOIN lieugestion l ON p.StandortID = l.StandortID
+            WHERE EXISTS (
+                SELECT 1
+                FROM slot_caridocs sc
+                WHERE sc.PrinterName = p.PrinterName
+                AND sc.BureauID = '{self.filtered_bureau}'
+            )
+            ORDER BY p.PrinterName;
+            """
+        # otherwise return full query
+        return self.query
+    
+    def set_filter(self, printer_name=None, slot_name=None, bureau_id=None):
+        """Set the bureau filter"""
+        self.filtered_bureau = bureau_id
+        self.filtered_printer = None
+        self.filtered_slot = None
+    
+    def clear_filter(self):
+        """Clear the bureau filter"""
+        self.filtered_bureau = None
+
+        
     def delete(self, app, row_value):
         printer_name = row_value[0]  # PrinterName is the first column
         

@@ -5,7 +5,7 @@ import db  # Import the db module
 
 class BureausView(BaseView):
     name = "bureaus"
-    columns = ["BureauID", "Bureau", "Printers", "CARIdocs*", "Fachabteilung", "Standort"]
+    columns = ["BureauID", "Bureau", "Printers*", "CARIdocs*", "Fachabteilung", "Standort"]
     columns_actions = {
         "#3": "show_printers_from_bureaus",
         "#4": "show_caridocs_from_bureaus"
@@ -35,6 +35,7 @@ class BureausView(BaseView):
     ORDER BY b.BureauID
     """
 
+
     def get_query(self):
         """Return query, optionally filtered by printer name"""
         if self.filtered_printer:
@@ -42,6 +43,11 @@ class BureausView(BaseView):
                 SELECT
                     b.BureauID,
                     b.Bureau,
+                    (
+                        SELECT COUNT(DISTINCT sc.PrinterName)
+                        FROM slot_caridocs sc 
+                        WHERE sc.BureauID = b.BureauID
+                    ) AS 'Printers',
                     (
                         SELECT COUNT(*) 
                         FROM (
@@ -65,9 +71,10 @@ class BureausView(BaseView):
             """
         return self.query
     
-    def set_filter(self, printer_name):
+    def set_filter(self, printer_name=None):
         """Set the printer filter"""
         self.filtered_printer = printer_name
+   
     
     def clear_filter(self):
         """Clear the printer filter"""

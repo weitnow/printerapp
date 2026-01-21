@@ -241,6 +241,10 @@ class PrinterApp:
         if not view_name:
             return
         
+        if view_name == "printers":
+            #clear any filters when going back to printers view
+            self.views["printers"].clear_filter()
+        
         view_key = self._find_view_key_by_name(view_name)
         if not view_key:
             return

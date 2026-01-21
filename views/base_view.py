@@ -87,6 +87,7 @@ class BaseView(ABC):
             bureau_id = row_value[0]  # BureauID is the first column
             app.switch_view("slot_cari_docs", filter_bureau=bureau_id)
 
+    #used in bureaus.py
     def show_printers_from_bureaus(self, app, row_value, col):
         """Switch to printer view filtered by bureau id"""
         bureau_id = row_value[0]  # BureauID is the first column
