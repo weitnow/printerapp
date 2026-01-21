@@ -19,7 +19,6 @@ class PrinterApp:
         self.current_rows: List[Tuple] = []
         self.sort_reverse: bool = False
         self.navigation_history: List[Dict[str, Any]] = []
-        self.current_item = "Printer1234" # optionaly use this for show a string with info in navigation_history
         self.back_button: Optional[tk.Button] = None
         self.current_view = ""
         
@@ -112,10 +111,6 @@ class PrinterApp:
             command=partial(self.switch_view, "bureaus", clear_history=True)
         )
         view_menu.add_command(
-            label="Printer Slots", 
-            command=partial(self.switch_view, "printer slots", clear_history=True)
-        )
-        view_menu.add_command(
             label="Cari Doc Slots", 
             command=partial(self.switch_view, "slot_cari_docs", clear_history=True)
         )
@@ -148,34 +143,33 @@ class PrinterApp:
             return
         
         if clear_history:
-            self.current_item = ""
             self.navigation_history.clear()
         
-        if add_to_history and self.current_view and not clear_history:
-            history_entry = {
-                'view_name': getattr(self.current_view, 'name', None),
-                'filter_printer': None, #getattr(self.current_view, 'filtered_printer', None),
-                'optional_info': self.current_item
-            }
-            self.navigation_history.append(history_entry)
-        
-        if self.current_view and hasattr(self.current_view, 'on_view_hidden'):
-            self.current_view.on_view_hidden(self)
-        
         target_view = self.views[view_name]
-        
+
+        # ---- APPLY FILTER TO TARGET VIEW FIRST ----
         if 'filter_printer' in kwargs and 'filter_slot' in kwargs and hasattr(target_view, 'set_filter'):
-            if kwargs["show_printer_in_nav_history"] != False:
-                self.current_item = kwargs["filter_printer"]
             target_view.set_filter(
                 printer_name=kwargs.get('filter_printer'),
                 slot_name=kwargs.get('filter_slot')
             )
         elif 'filter_printer' in kwargs and hasattr(target_view, 'set_filter'):
-            self.current_item = kwargs["filter_printer"]
             target_view.set_filter(kwargs['filter_printer'])
+        elif 'filter_bureau' in kwargs and hasattr(target_view, 'set_filter'):
+            target_view.set_filter(bureau_id=kwargs['filter_bureau'])
         elif hasattr(target_view, 'clear_filter'):
             target_view.clear_filter()
+
+        # ---- NOW SAVE HISTORY OF CURRENT VIEW ----
+        if add_to_history and self.current_view and not clear_history:
+            history_entry = {
+            'view_name': getattr(self.current_view, 'name', None),
+            'filter_printer': (
+                getattr(self.current_view, 'filtered_printer', None)
+                or kwargs.get('filter_printer')
+    ),
+}
+            self.navigation_history.append(history_entry)
 
         
         self.current_view = target_view
@@ -228,7 +222,7 @@ class PrinterApp:
             
             self.back_button = tk.Button(
                 self.dynamic_frame,
-                text=f"← Back to {view_name}{filter_info} {self.current_item}",
+                text=f"← Back to {view_name}{filter_info}",
                 command=self._go_back
             )
             self.back_button.pack(side="top", fill="x", padx=5, pady=5)

@@ -5,18 +5,24 @@ import db  # Import the db module
 
 class BureausView(BaseView):
     name = "bureaus"
-    columns = ["BureauID", "Bureau", "printerslots*", "Fachabteilung", "Standort"]
+    columns = ["BureauID", "Bureau", "Printers", "CARIdocs*", "Fachabteilung", "Standort"]
     columns_actions = {
-        "#3": "show_caridocs_from_bureaus"
+        "#3": "show_printers_from_bureaus",
+        "#4": "show_caridocs_from_bureaus"
     }
     query = """
     SELECT
     b.BureauID,
     b.Bureau,
     (
+        SELECT COUNT(DISTINCT sc.PrinterName)
+        FROM slot_caridocs sc 
+        WHERE sc.BureauID = b.BureauID
+    ) AS 'Printers',
+    (
         SELECT COUNT(*) 
         FROM (
-            SELECT DISTINCT SlotName, CARIdoc, PrinterName
+            SELECT DISTINCT SlotName, CARIdoc
             FROM slot_caridocs sc 
             WHERE sc.BureauID = b.BureauID
             )
@@ -39,9 +45,10 @@ class BureausView(BaseView):
                     (
                         SELECT COUNT(*) 
                         FROM (
-                            SELECT DISTINCT SlotName, CARIdoc, PrinterName
+                            SELECT DISTINCT SlotName, CARIdoc
                             FROM slot_caridocs sc 
                             WHERE sc.BureauID = b.BureauID
+                            AND sc.PRINTERNAME = '{self.filtered_printer}'
                             )
                     ) AS 'Anzahl CARI-Docs',
                     f.Fachabteilung,

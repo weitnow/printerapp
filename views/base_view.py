@@ -66,35 +66,31 @@ class BaseView(ABC):
         app.switch_view("slot_cari_docs", filter_printer=printer_name
         )
 
-    #used in printers.py#
+    #used in printers.py
     def show_bureaus(self, app, row_value, col):
         """Switch to caridoc bureaus view filtered by printer name"""
         printer_name = row_value[0]  # PrinterName is the first column
         app.switch_view("bureaus", filter_printer=printer_name
         )
+    #used in printer.py
+    def show_printer_caridocs_bureaus(self, app, row_value, col):
+        """Switch to caridoc view filtered by printer name"""
+        printer_name = row_value[0]  # PrinterName is the first column
+        app.switch_view("slot_cari_docs", filter_printer=printer_name)
 
     #used in bureaus.py
     def show_caridocs_from_bureaus(self, app, row_value, col):
-        """Switch to caridoc view filtered by printer name"""
-        
-        #getting printer_name from bureau id
-        bureau_id = row_value[0] # BureauID is the first column
+        # if there is a set printer name filter, use it
+        if self.filtered_printer:                                
+            app.switch_view("slot_cari_docs", filter_printer=self.filtered_printer)
+        else:
+            bureau_id = row_value[0]  # BureauID is the first column
+            app.switch_view("slot_cari_docs", filter_bureau=bureau_id)
 
-        with db.get_connection() as conn:
-            cur = conn.cursor()
-            cur.execute("""
-                SELECT DISTINCT sc.PrinterName
-                FROM slot_caridocs sc
-                WHERE sc.BureauID = ?
-            """, (bureau_id,))
-            result = cur.fetchone()
-            if result:
-                printer_name = result[0]
-            else:
-                messagebox.showinfo("Info", f"No printer slots found for BureauID {bureau_id}.")
-                return
-
-        app.switch_view("slot_cari_docs", filter_printer=printer_name, show_printer_in_nav_history = False)
+    def show_printers_from_bureaus(self, app, row_value, col):
+        """Switch to printer view filtered by bureau id"""
+        bureau_id = row_value[0]  # BureauID is the first column
+        app.switch_view("printers", filter_bureau=bureau_id)
 
     #used in slot_printer.py
     def show_caridocs_of_slot(self, app, row_value, col): 
@@ -103,11 +99,7 @@ class BaseView(ABC):
         slot_name = row_value[1]     # SlotName is the second column
         app.switch_view("slot_cari_docs", filter_printer=printer_name, filter_slot=slot_name)
 
-    #used in slot_cari_docs.py
-    def show_printer_slots_from_slot_cari_docs(self, app, row_value, col):
-        printer_name = row_value[7] # PrinterName is the 8 colum
-        slot_name = row_value[1]    # SlotName is the second column
-        app.switch_view("slot_cari_docs", filter_printer=printer_name, filter_slot=slot_name)
+
     
     ### --- --- --- --- --- --- --- --- --- ###
 

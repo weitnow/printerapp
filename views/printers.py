@@ -9,7 +9,7 @@ from functools import partial
 # =====================
 class PrintersView(BaseView):
     name = "printers"
-    columns = ["PrinterName", "printerslots*", "CARIdocs*", "Bureaus*", "PrinterModel", "Standort"]
+    columns = ["PrinterName", "Printerslots*", "CARIdocs*", "Bureaus*", "PrinterModel", "Standort"]
     columns_actions = {
         "#2": "show_printer_slots",
         "#3": "show_caridocs",  

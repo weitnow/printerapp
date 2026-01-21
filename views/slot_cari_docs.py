@@ -12,9 +12,7 @@ class SlotCariDoc(BaseView):
         "Bureau", "BureauID", "Department", "Location",
         "BureauRemark"
     ]
-    columns_actions = {
-        '#2': "show_printer_slots_from_slot_cari_docs"
-    }
+
     query = """
     SELECT
         pn.PrinterName,
@@ -93,25 +91,57 @@ class SlotCariDoc(BaseView):
             WHERE pn.PrinterName = '{self.filtered_printer}'
             ORDER BY ps.SlotName                  
             """
+        elif self.filtered_bureau:
+            return f"""
+            SELECT
+                pn.PrinterName,
+                pn.PrinterModel,
+                ps.SlotName,
+                ps.PaperFormat,
+                ps.TwoSided,
+                ps.Autoprint,
+                ps.Bemerkung AS SlotBemerkung,
+                sc.CARIdoc,
+                cd.CARIdoc,
+                b.Bureau,
+                b.BureauID,
+                f.Fachabteilung,
+                l.Standort,
+                sc.Bemerkung AS BureauBemerkung
+            FROM printernames pn
+            LEFT JOIN printerslots ps ON pn.PrinterName = ps.PrinterName
+            LEFT JOIN slot_caridocs sc
+                ON ps.PrinterName = sc.PrinterName
+                AND ps.SlotName = sc.SlotName
+            LEFT JOIN caridocs cd ON sc.CARIdoc = cd.CARIdoc
+            LEFT JOIN bureaus b ON sc.BureauID = b.BureauID
+            LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
+            LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
+            WHERE b.BureauID = {self.filtered_bureau}
+            ORDER BY pn.PrinterName, ps.SlotName
+            """
+        
         # otherwise return full query
         return self.query
     
-    def set_filter(self, printer_name=None, slot_name=None):
-        """Set the printer and slot filters"""
+    def set_filter(self, printer_name=None, slot_name=None, bureau_id=None):
+        """Set the printer, slot, and bureau filters"""
         self.filtered_printer = printer_name
         self.filtered_slot = slot_name
+        self.filtered_bureau = bureau_id
     
     def clear_filter(self):
         """Clear the printer filter"""
         self.filtered_printer = None
         self.filtered_slot = None
+        self.filtered_bureau = None
 
     def on_view_shown(self, app, frame):
         """Called when view is shown - update columns if filtered"""
         if self.filtered_printer:
             # change column headers to show filtered printer name
             self.columns = [
-                "CARIdoc", "SlotName*", "PaperFormat",
+                "CARIdoc", "SlotName", "PaperFormat",
                 "TwoSided", "Autoprint", "SlotRemark", "Department", "PrinterName"
             ]
             # apply new columns
