@@ -111,7 +111,7 @@ class BaseView(ABC):
         """Delete method must be implemented by each view"""
         pass
     
-    @abstractmethod
+    
     def get_query(self):
         """Override this method if you need dynamic queries"""
         return self.query

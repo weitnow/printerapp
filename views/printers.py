@@ -189,3 +189,18 @@ class PrintersView(BaseView):
                 "Error",
                 f"Unexpected error:\n{str(e)}"
             )
+
+
+    def build_context_menu(self, app, menu, selected_rows):
+        """Add PrintersView-specific context menu items"""
+        if not selected_rows:
+            return
+
+        #TODO: change function, this is only for testing
+        menu.add_command(
+            label="Add printer",
+            command=lambda: [
+                self.clear_filter(),
+                app.refresh_view()
+            ]
+        )

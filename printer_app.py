@@ -5,6 +5,8 @@ from views.printers import PrintersView
 from views.bureaus import BureausView
 from views.slot_cari_docs import SlotCariDoc
 from views.slot_printer import SlotPrinter
+from views.departments import DepartmentView
+from views.printer_models import PrinterModels
 import threading
 from typing import List, Tuple, Dict, Any, Optional
 from functools import partial
@@ -115,6 +117,14 @@ class PrinterApp:
             label="Cari Doc Slots", 
             command=partial(self.switch_view, "slot_cari_docs", clear_history=True)
         )
+        view_menu.add_command(
+            label="Departments",
+            command=partial(self.switch_view, "departments", clear_history=True)
+        )
+        view_menu.add_command(
+            label="Printer Models",
+            command=partial(self.switch_view, "printer_models", clear_history=True)
+        )
         
         # File Menu
         file_menu = tk.Menu(menubar, tearoff=0)
@@ -129,6 +139,8 @@ class PrinterApp:
             "bureaus": BureausView(),
             "printer slots": SlotPrinter(),
             "slot_cari_docs": SlotCariDoc(),
+            "departments": DepartmentView(),
+            "printer_models": PrinterModels()
         }
 
     def switch_view(
