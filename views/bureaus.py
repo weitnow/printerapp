@@ -82,19 +82,42 @@ class BureausView(BaseView):
 
 
 
-    def delete(self, app, row):
-        bureau_id = row[0]
-        if messagebox.askyesno("Delete", f"Lösche bureau ID {bureau_id}? \nBureaus sollten nicht gelöscht werden, weil die BureauID in CARI vergeben ist."):
-            try:
-                with db.get_connection() as conn:
-                    cur = conn.cursor()
-                    cur.execute(
-                        "DELETE FROM bureaus WHERE BureauID = ?",
-                        (bureau_id,)
-                    )
-                app.refresh_view()
-            except sqlite3.IntegrityError as e:
-                messagebox.showerror("Error", 
-                    f"Cannot delete bureau: It is still referenced in slot_caridocs.\n\n{str(e)}")
-            except Exception as e:
-                messagebox.showerror("Error", f"Unexpected error: {str(e)}")
+    def delete(self, app, selected_rows):
+
+        if not selected_rows:
+            return
+
+        bureau_ids = [row[0] for row in selected_rows]
+
+        message = (
+            "You are about to delete the following Bureau ID(s):\n\n"
+            + "\n".join(f"• {bid}" for bid in bureau_ids)
+            + "\n\n⚠️ Bureaus should normally NOT be deleted, because the BureauID is "
+            "used in CARI.\n\nDo you want to continue?"
+        )
+
+        if not messagebox.askyesno("Delete Bureaus", message):
+            return
+
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.executemany(
+                    "DELETE FROM bureaus WHERE BureauID = ?",
+                    [(bid,) for bid in bureau_ids]
+                )
+
+            app.refresh_view()
+            messagebox.showinfo(
+                "Success",
+                f"{len(bureau_ids)} bureau(s) deleted successfully."
+            )
+
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror(
+                "Error",
+                "Cannot delete one or more bureaus because they are still referenced "
+                "in slot_caridocs.\n\n" + str(e)
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")

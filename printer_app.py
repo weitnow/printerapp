@@ -79,6 +79,7 @@ class PrinterApp:
         self.tree = ttk.Treeview(
             frame, 
             show="headings",
+            selectmode="extended",
             yscrollcommand=v_scroll.set,
             xscrollcommand=h_scroll.set
         )
@@ -144,6 +145,10 @@ class PrinterApp:
         
         if clear_history:
             self.navigation_history.clear()
+
+        # If old view has "on view hidden" call the methode before switching to new view
+        if hasattr(self.current_view, 'on_view_hidden'):
+            self.current_view.on_view_hidden(self)
         
         target_view = self.views[view_name]
 
@@ -267,6 +272,15 @@ class PrinterApp:
         columns = self.current_view.columns
         self.tree["columns"] = columns
         
+        # Define specific widths for certain columns
+        column_widths = {
+            "CARIDocument": 300,  # Wider for this column
+            "CARIdoc": 100,
+            "SlotRemark": 200,
+            "BureauRemark": 200,
+            # Add more specific widths as needed
+        }
+        
         for col in columns:
             self.tree.heading(
                 col, 
@@ -274,7 +288,10 @@ class PrinterApp:
                 anchor="w",
                 command=partial(self._sort_by_column, col)
             )
-            self.tree.column(col, anchor="w", width=120, minwidth=50, stretch=True)
+            
+            # Use specific width if defined, otherwise use default
+            width = column_widths.get(col, 120)
+            self.tree.column(col, anchor="w", width=width, minwidth=50, stretch=True)
 
     def _populate_tree(self, rows: List[Tuple]) -> None:
         """Fill treeview with data (zebra styling)"""
@@ -325,6 +342,12 @@ class PrinterApp:
         if hasattr(self.current_view, 'on_double_click'):
             self.current_view.on_double_click(self, row_value, col_id)
 
+    def _dismiss_context_menu(self, event):
+        try:
+            self.context_menu.unpost()
+        except:
+            pass
+
     def _show_context_menu(self, event) -> None:
         """Show context menu on right-click"""
         row_id = self.tree.identify_row(event.y)
@@ -332,21 +355,37 @@ class PrinterApp:
         if not row_id or not self.current_view:
             return
         
-        self.tree.selection_set(row_id)
-        row = self.tree.item(row_id, "values")
-        
+        # Wenn Row nicht selektiert ist -> nur diese selektieren
+        if row_id not in self.tree.selection():
+            self.tree.selection_set(row_id)
+
+        selected_rows = [
+            self.tree.item(row_id, "values")
+            for row_id in self.tree.selection()
+        ]
+
         self.context_menu.delete(0, "end")
-        self._add_base_context_actions(row)
-        
-        if hasattr(self.current_view, "extend_context_menu"):
-            self.current_view.extend_context_menu(
+
+        # Add base context actions which are common for all views
+        self.context_menu.add_command(
+            label=f"Delete ({len(selected_rows)})",
+            command=partial(self.current_view.delete, self, selected_rows)
+        )
+
+        # Add view-specific context menu items, by calling build_context_menu of the view if it exists
+        if hasattr(self.current_view, "build_context_menu"):
+            self.context_menu.add_separator()
+            self.current_view.build_context_menu(
                 app=self,
                 menu=self.context_menu,
-                row_value=row,
-                col=self.tree.identify_column(event.x)
+                selected_rows=selected_rows
             )
-        
+
         self.context_menu.post(event.x_root, event.y_root)
+
+        # Bind left-click to dismiss menu
+        self.root.bind("<Button-1>", self._dismiss_context_menu, add="+")
+
 
     def _add_base_context_actions(self, row: Tuple) -> None:
         """Add base context menu actions"""
@@ -386,64 +425,58 @@ class PrinterApp:
             title="Select Excel File",
             filetypes=[("Excel files", "*.xlsx *.xls")]
         )
-        
+
         if not filename:
             return
-        
+
         from xlsx_import import run_import
         import pandas as pd
-        
+
+        # --- Confirm destructive import ---
+        response = messagebox.askokcancel(
+            "Confirm Import",
+            "⚠️ WARNING: Importing will override ALL existing data in the database!\n\n"
+            "All current printers, bureaus, slots and assignments will be deleted "
+            "and replaced with the contents of the selected Excel file.\n\n"
+            "Do you want to continue?",
+            icon="warning"
+        )
+
+        if not response:
+            return
+
         try:
-            # Step 1: Run dry-run validation
-            self.root.config(cursor="watch")
-            self.root.update()
-            
-            run_import(xlsx_file=filename, dry_run=True)
-            
-            # Step 2: If dry-run passed, ask for confirmation
-            self.root.config(cursor="")
-            
-            response = messagebox.askokcancel(
-                "Import Validation Passed",
-                "✅ Dry-run validation successful!\n\n"
-                "⚠️ WARNING: Importing will override all existing data in the database!\n\n"
-                "All current printers, bureaus, and related data will be replaced.\n\n"
-                "Do you want to proceed with the actual import?",
-                icon='warning'
-            )
-            
-            if not response:
-                return
-            
-            # Step 3: Count rows from Excel file
+            # --- Read Excel stats (before import) ---
             df_printers = pd.read_excel(filename, sheet_name=0)
             df_forms = pd.read_excel(filename, sheet_name=1)
+
             total_printer_rows = len(df_printers)
             total_form_rows = len(df_forms)
-            
-            # Step 4: Run actual import
+
+            # --- Run import ---
             self.root.config(cursor="watch")
             self.root.update()
-            
-            run_import(xlsx_file=filename, dry_run=False)
-            
+
+            run_import(xlsx_file=filename)
+
             success_msg = (
                 f"✅ Import finished successfully!\n\n"
                 f"📊 Import Statistics:\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"Printer sheet rows: {total_printer_rows}\n"
                 f"Forms sheet rows: {total_form_rows}\n"
-                f"Total rows imported: {total_printer_rows + total_form_rows}"
+                f"Total rows processed: {total_printer_rows + total_form_rows}"
             )
-            
+
             messagebox.showinfo("Success", success_msg)
             self.refresh_view()
-            
+
         except Exception as e:
             messagebox.showerror("Import Error", f"Error: {str(e)}")
+
         finally:
-            # Re-enable the root window
             self.root.config(cursor="")
+
 
     def _export_xlsx(self) -> None:
         """Prompt user for export location and run the export"""
@@ -463,7 +496,6 @@ class PrinterApp:
             # Disable the root window to prevent interaction
             self.root.config(cursor="watch")
             self.root.update()
-            
             db_file = "printers.db"
             success, message, stats = export_printer_data(
                 db_file=db_file,

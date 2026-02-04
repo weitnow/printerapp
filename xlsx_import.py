@@ -7,9 +7,8 @@ import sqlite3
 # ============================================================
 
 def run_import(
-        xlsx_file: str, 
-        db_file: str = "printers.db",
-        dry_run: bool = False) -> None:
+        xlsx_file: str,
+        db_file: str = "printers.db") -> None:
     """
     Import printer data from XLSX into SQLite database.
 
@@ -17,18 +16,14 @@ def run_import(
         RuntimeError on validation or consistency errors
         Any other exception on unexpected failure
     """
-    try:
-        _run_import_internal(xlsx_file, db_file, dry_run)
-    except Exception:
-        # Let caller (GUI / CLI) decide how to handle it
-        raise
+    _run_import_internal(xlsx_file, db_file)
 
 
 # ============================================================
 # Internal implementation
 # ============================================================
 
-def _run_import_internal(xlsx_file: str, db_file: str, dry_run: bool) -> None:
+def _run_import_internal(xlsx_file: str, db_file: str) -> None:
     sheet_name_printers = 0
     sheet_name_forms = 1
 
@@ -36,18 +31,11 @@ def _run_import_internal(xlsx_file: str, db_file: str, dry_run: bool) -> None:
     df_printers = pd.read_excel(xlsx_file, sheet_name=sheet_name_printers)
     df_forms = pd.read_excel(xlsx_file, sheet_name=sheet_name_forms)
 
-    # --- STEP 2: Connect to SQLite ---
-    #conn = sqlite3.connect(db_file)
-    #cursor = conn.cursor()
-    #conn.execute("PRAGMA foreign_keys = ON;")
-
+    # --- STEP 2: Database ---
     conn = sqlite3.connect(db_file)
-    conn.isolation_level = None   # manual transaction control
     cursor = conn.cursor()
 
     cursor.execute("PRAGMA foreign_keys = ON;")
-    cursor.execute("BEGIN")
-
 
     try:
         _drop_tables(cursor)
@@ -65,12 +53,7 @@ def _run_import_internal(xlsx_file: str, db_file: str, dry_run: bool) -> None:
         _validate_printer_standorte(cursor)
         _update_printer_standorte(cursor, df_printers, standort_map)
 
-        #conn.commit()
-        if dry_run:
-            conn.rollback()
-            print("🧪 Dry-Run completed – no changes written to database.")
-        else:
-            conn.commit()
+        conn.commit()
 
     except Exception:
         conn.rollback()
@@ -185,77 +168,74 @@ def _create_schema(cursor):
 # ============================================================
 
 def _import_druckeinlagen(cursor, df):
-    """
-    Import all unique 'Format Druckeinlage' values
-    into table druckeinlage before caridocs import.
-    """
-    unique = (
-        df[["Format Druckeinlage"]]
-        .dropna()
-        .drop_duplicates()
-    )
+    unique = df[["Format Druckeinlage"]].dropna().drop_duplicates()
 
     for _, row in unique.iterrows():
         value = str(row["Format Druckeinlage"]).strip()
-        if value == "":
-            continue
-
-        cursor.execute(
-            """
-            INSERT OR IGNORE INTO druckeinlage (FormatDruckeinlage)
-            VALUES (?)
-            """,
-            (value,)
-        )
+        if value:
+            cursor.execute(
+                "INSERT OR IGNORE INTO druckeinlage (FormatDruckeinlage) VALUES (?)",
+                (value,)
+            )
 
 
 def _import_caridocs(cursor, df):
     for _, row in df.iterrows():
         caridoc = row.get("Formular")
-        format_caridoc = row.get("Format CARI-Doc")
-        format_druckeinlage = row.get("Format Druckeinlage")
-        beschreibung_formular = row.get("Beschreibung Formular")
-
-        if pd.isna(caridoc): #checks for NaN, Non, if the value is empty -> skip this row
+        if pd.isna(caridoc):
             continue
 
         cursor.execute(
             """
-            INSERT OR IGNORE INTO caridocs (CARIdoc, FormatCARIDoc, FormatDruckeinlage, BeschreibungFormular)
+            INSERT OR IGNORE INTO caridocs
+            (CARIdoc, FormatCARIDoc, FormatDruckeinlage, BeschreibungFormular)
             VALUES (?, ?, ?, ?)
             """,
-            (caridoc,
-            format_caridoc,
-            format_druckeinlage,
-            beschreibung_formular,             
+            (
+                caridoc,
+                row.get("Format CARI-Doc"),
+                row.get("Format Druckeinlage"),
+                row.get("Beschreibung Formular"),
             )
         )
 
 
 def _import_standorte(cursor, df):
+    """
+    Inserts unique Standorte into lieugestion table.
+    SQLite assigns the StandortID automatically.
+    Returns a mapping Standort -> StandortID for later use.
+    """
     unique = df[["Standort"]].dropna().drop_duplicates()
     mapping = {}
 
-    for idx, row in unique.iterrows():
+    for _, row in unique.iterrows():
+        # Insert only the Standort column; SQLite auto-assigns the ID
         cursor.execute(
-            "INSERT INTO lieugestion (StandortID, Standort) VALUES (?, ?)",
-            (idx + 1, row["Standort"])
+            "INSERT INTO lieugestion (Standort) VALUES (?)",
+            (row["Standort"],)
         )
-        mapping[row["Standort"]] = idx + 1
+        # lastrowid gives the auto-assigned primary key
+        mapping[row["Standort"]] = cursor.lastrowid
 
     return mapping
 
 
 def _import_fachabteilungen(cursor, df):
+    """
+    Inserts unique Fachabteilungen into fachabteilung table.
+    SQLite assigns the FachabteilungID automatically.
+    Returns a mapping Fachabteilung -> FachabteilungID.
+    """
     unique = df[["Fachabteilung"]].dropna().drop_duplicates()
     mapping = {}
 
-    for idx, row in unique.iterrows():
+    for _, row in unique.iterrows():
         cursor.execute(
-            "INSERT INTO fachabteilung (FachabteilungID, Fachabteilung) VALUES (?, ?)",
-            (idx + 1, row["Fachabteilung"])
+            "INSERT INTO fachabteilung (Fachabteilung) VALUES (?)",
+            (row["Fachabteilung"],)
         )
-        mapping[row["Fachabteilung"]] = idx + 1
+        mapping[row["Fachabteilung"]] = cursor.lastrowid
 
     return mapping
 
@@ -291,56 +271,52 @@ def _import_bureaus(cursor, df, fach_map, standort_map):
 
 def _import_slots_and_assignments(cursor, df):
     for _, row in df.iterrows():
-        printer_name = row.get('Druckername')
-        slot_name = row.get('Schacht Name')
-        caridoc = row.get('CARIdoc')
-        paperformat = row.get('Format')
-        bureau_id = row.get('Bureau-ID')
-        bemerkung = row.get('Bemerkung') if pd.notna(row.get('Bemerkung')) else None
+        printer_name = row.get("Druckername")
+        slot_name = row.get("Schacht Name")
 
-        two_sided = (
-            str(row.get('2-sided')).strip().lower()
-            in ['2-sided', 'true', '1']
-        )
-
-        autoprint = (
-            str(row.get('Autoprint')).strip().lower()
-            in ['true', '1', 'yes', 'x']
-        )
-
-        # --- Skip invalid rows ---
-        if pd.isna(printer_name) or str(printer_name).strip() == '':
-            continue
-        if pd.isna(slot_name) or str(slot_name).strip() == '':
+        if pd.isna(printer_name) or pd.isna(slot_name):
             continue
 
-        # --- Insert slot ---
-        cursor.execute("""
+        two_sided = str(row.get("2-sided")).strip().lower() in ["2-sided", "true", "1"]
+        autoprint = str(row.get("Autoprint")).strip().lower() in ["true", "1", "yes", "x"]
+
+        cursor.execute(
+            """
             INSERT OR IGNORE INTO printerslots
             (PrinterName, SlotName, PaperFormat, TwoSided, Autoprint, Bemerkung)
             VALUES (?, ?, ?, ?, ?, NULL)
-        """, (printer_name, slot_name, paperformat, two_sided, autoprint))
+            """,
+            (
+                printer_name,
+                slot_name,
+                row.get("Format"),
+                two_sided,
+                autoprint,
+            )
+        )
 
-        # --- CASE 1: Bureau slot => slot_caridocs ---
-        if (
-            pd.notna(caridoc)
-            and str(caridoc).strip() != ''
-            and pd.notna(bureau_id)
-        ):
-            cursor.execute("""
+        caridoc = row.get("CARIdoc")
+        bureau_id = row.get("Bureau-ID")
+        bemerkung = row.get("Bemerkung") if pd.notna(row.get("Bemerkung")) else None
+
+        if pd.notna(caridoc) and pd.notna(bureau_id):
+            cursor.execute(
+                """
                 INSERT OR IGNORE INTO slot_caridocs
                 (PrinterName, SlotName, CARIdoc, BureauID, Bemerkung)
                 VALUES (?, ?, ?, ?, ?)
-            """, (printer_name, slot_name, caridoc, bureau_id, bemerkung))
-
-        # --- CASE 2: Non-bureau slot => printerslots.Bemerkung ---
+                """,
+                (printer_name, slot_name, caridoc, bureau_id, bemerkung)
+            )
         elif bemerkung:
-            cursor.execute("""
+            cursor.execute(
+                """
                 UPDATE printerslots
                 SET Bemerkung = ?
                 WHERE PrinterName = ? AND SlotName = ?
-            """, (bemerkung, printer_name, slot_name))
-
+                """,
+                (bemerkung, printer_name, slot_name)
+            )
 
 
 # ============================================================
@@ -376,19 +352,15 @@ def _update_printer_standorte(cursor, df, standort_map):
 
 
 # ============================================================
-# CLI CLI entry point
+# CLI entry point
 # ============================================================
 
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print("Usage: python master_import.py <xlsx_file> [--dry-run]")
+        print("Usage: python master_import.py <xlsx_file>")
         sys.exit(1)
 
-    dry_run = "--dry-run" in sys.argv
-
-    run_import(sys.argv[1], dry_run=dry_run)
-
-    if not dry_run:
-        print("✅ Import completed successfully")
+    run_import(sys.argv[1])
+    print("✅ Import completed successfully")

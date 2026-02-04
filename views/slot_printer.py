@@ -52,20 +52,51 @@ class SlotPrinter(BaseView):
         """Clear the printer filter"""
         self.filtered_printer = None
     
-    def delete(self, app, row):
-        printer_name = row[0]  # PrinterName
-        slot_name = row[1]     # SlotName
-        
-        if messagebox.askyesno("Delete Slot", 
-                              f"Delete slot '{slot_name}' from printer '{printer_name}'?"):
-            try:
-                with db.get_connection() as conn:
-                    cur = conn.cursor()
-                    cur.execute(
-                        "DELETE FROM printerslots WHERE PrinterName = ? AND SlotName = ?",
-                        (printer_name, slot_name)
-                    )
-                app.refresh_view()
-                messagebox.showinfo("Success", f"Slot '{slot_name}' deleted successfully.")
-            except Exception as e:
-                messagebox.showerror("Error", f"Could not delete slot: {str(e)}")
+    def delete(self, app, selected_rows):
+        if not selected_rows:
+            return
+
+        # Each row: (PrinterName, SlotName, ...)
+        slots = [(row[0], row[1]) for row in selected_rows]
+
+        # --- Build confirmation message ---
+        lines = [
+            f"• {printer} → {slot}"
+            for printer, slot in slots
+        ]
+
+        message = (
+            f"You are about to delete {len(slots)} slot(s):\n\n"
+            + "\n".join(lines)
+            + "\n\nDeleting slots will also delete all assigned CARIdocs."
+        )
+
+        if not messagebox.askyesno("Delete Slots", message):
+            return
+
+        # --- Delete slots (cascade handles slot_caridocs) ---
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+
+                cur.executemany(
+                    "DELETE FROM printerslots WHERE PrinterName = ? AND SlotName = ?",
+                    slots
+                )
+
+            app.refresh_view()
+            messagebox.showinfo(
+                "Success",
+                f"{len(slots)} slot(s) deleted successfully."
+            )
+
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror(
+                "Error",
+                f"Cannot delete slot(s):\n{str(e)}"
+            )
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Unexpected error:\n{str(e)}"
+            )

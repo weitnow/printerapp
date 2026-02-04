@@ -113,44 +113,79 @@ class PrintersView(BaseView):
         self.filtered_bureau = None
 
         
-    def delete(self, app, row_value):
-        printer_name = row_value[0]  # PrinterName is the first column
-        
-        # First, check if printer has slots
+    def delete(self, app, selected_rows):
+
+        if not selected_rows:
+            return
+
+        # PrinterName is column 0
+        printer_names = [row[0] for row in selected_rows]
+
+        placeholders = ",".join("?" for _ in printer_names)
+
+        # --- Check slot counts for all selected printers ---
         try:
             with db.get_connection() as conn:
                 cur = conn.cursor()
-                cur.execute("""
-                    SELECT COUNT(*) 
-                    FROM printerslots 
-                    WHERE PrinterName = ?
-                """, (printer_name,))
-                slot_count = cur.fetchone()[0]
+                cur.execute(f"""
+                    SELECT PrinterName, COUNT(*)
+                    FROM printerslots
+                    WHERE PrinterName IN ({placeholders})
+                    GROUP BY PrinterName
+                """, printer_names)
+
+                slot_counts = dict(cur.fetchall())
+
         except Exception as e:
-            messagebox.showerror("Error", f"Could not check printer slots: {str(e)}")
+            messagebox.showerror(
+                "Error",
+                f"Could not check printer slots:\n{str(e)}"
+            )
             return
-        
-        # Build warning message based on slot count
-        if slot_count > 0:
-            message = (f"Printer '{printer_name}' has {slot_count} slot(s) assigned.\n\n"
-                      f"Deleting the printer will also delete all its slots and their assignments.\n\n"
-                      f"Do you want to continue?")
-        else:
-            message = f"Delete printer '{printer_name}'?"
-        
-        # Ask for confirmation
-        if messagebox.askyesno("Delete Printer", message):
-            try:
-                with db.get_connection() as conn:
-                    cur = conn.cursor()
-                    cur.execute(
-                        "DELETE FROM printernames WHERE PrinterName = ?",
-                        (printer_name,)
-                    )
-                app.refresh_view()
-                messagebox.showinfo("Success", f"Printer '{printer_name}' deleted successfully.")
-            except sqlite3.IntegrityError as e:
-                messagebox.showerror("Error", 
-                    f"Cannot delete printer: {str(e)}")
-            except Exception as e:
-                messagebox.showerror("Error", f"Unexpected error: {str(e)}")
+
+        # --- Build confirmation message ---
+        lines = [
+            f"• {name} ({slot_counts.get(name, 0)} slot(s))"
+            for name in printer_names
+        ]
+
+        message = (
+            f"You are about to delete {len(printer_names)} printer(s):\n\n"
+            + "\n".join(lines)
+        )
+
+        if any(slot_counts.values()):
+            message += (
+                "\n\nDeleting the printers will also delete all their slots "
+                "and CARIdoc assignments."
+            )
+
+        # --- Ask for confirmation ---
+        if not messagebox.askyesno("Delete Printers", message):
+            return
+
+        # --- Delete printers (cascade handles the rest) ---
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    f"DELETE FROM printernames WHERE PrinterName IN ({placeholders})",
+                    printer_names
+                )
+
+            app.refresh_view()
+            messagebox.showinfo(
+                "Success",
+                f"{len(printer_names)} printer(s) deleted successfully."
+            )
+
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror(
+                "Error",
+                f"Cannot delete printer(s):\n{str(e)}"
+            )
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Unexpected error:\n{str(e)}"
+            )

@@ -23,7 +23,7 @@ class SlotCariDoc(BaseView):
         ps.Autoprint,
         ps.Bemerkung AS SlotBemerkung,
         sc.CARIdoc,
-        cd.CARIdoc,
+        cd.BeschreibungFormular,
         b.Bureau,
         b.BureauID,
         f.Fachabteilung,
@@ -50,6 +50,7 @@ class SlotCariDoc(BaseView):
             return f"""
             SELECT DISTINCT
                 sc.CARIdoc,
+                cd.BeschreibungFormular,
                 ps.SlotName,
                 ps.PaperFormat,
                 ps.TwoSided,
@@ -62,6 +63,7 @@ class SlotCariDoc(BaseView):
             LEFT JOIN slot_caridocs sc
                 ON ps.PrinterName = sc.PrinterName
                 AND ps.SlotName = sc.SlotName
+            LEFT JOIN caridocs cd ON sc.CARIdoc = cd.CARIdoc
             LEFT JOIN bureaus b ON sc.BureauID = b.BureauID
             LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
             LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
@@ -73,41 +75,38 @@ class SlotCariDoc(BaseView):
             return f"""
             SELECT DISTINCT
                 sc.CARIdoc,
+                cd.BeschreibungFormular,
+                pn.PrinterName,
                 ps.SlotName,
+                ps.Bemerkung AS SlotBemerkung,
                 ps.PaperFormat,
                 ps.TwoSided,
                 ps.Autoprint,
-                ps.Bemerkung AS SlotBemerkung,
-                f.Fachabteilung,
-                pn.PrinterName
+                f.Fachabteilung
             FROM printernames pn
             LEFT JOIN printerslots ps ON pn.PrinterName = ps.PrinterName
             LEFT JOIN slot_caridocs sc
                 ON ps.PrinterName = sc.PrinterName
                 AND ps.SlotName = sc.SlotName
+            LEFT JOIN caridocs cd ON sc.CARIdoc = cd.CARIdoc
             LEFT JOIN bureaus b ON sc.BureauID = b.BureauID
             LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
             LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
             WHERE pn.PrinterName = '{self.filtered_printer}'
             ORDER BY ps.SlotName                  
             """
-        elif self.filtered_bureau:
+        elif self.filtered_bureau: 
             return f"""
             SELECT
+                sc.CARIdoc,
+                cd.BeschreibungFormular,
                 pn.PrinterName,
-                pn.PrinterModel,
                 ps.SlotName,
+                ps.Bemerkung AS SlotBemerkung,
                 ps.PaperFormat,
                 ps.TwoSided,
                 ps.Autoprint,
-                ps.Bemerkung AS SlotBemerkung,
-                sc.CARIdoc,
-                cd.CARIdoc,
-                b.Bureau,
-                b.BureauID,
-                f.Fachabteilung,
-                l.Standort,
-                sc.Bemerkung AS BureauBemerkung
+                f.Fachabteilung
             FROM printernames pn
             LEFT JOIN printerslots ps ON pn.PrinterName = ps.PrinterName
             LEFT JOIN slot_caridocs sc
@@ -138,18 +137,21 @@ class SlotCariDoc(BaseView):
 
     def on_view_shown(self, app, frame):
         """Called when view is shown - update columns if filtered"""
-        if self.filtered_printer:
+        print("on_view_shown(): " + str(self.filtered_bureau))
+        if self.filtered_printer or self.filtered_bureau: 
             # change column headers to show filtered printer name
             self.columns = [
-                "CARIdoc", "SlotName", "PaperFormat",
-                "TwoSided", "Autoprint", "SlotRemark", "Department", "PrinterName"
+                "CARIdoc", "CARIDocument", "PrinterName", "SlotName", "SlotRemark", "PaperFormat",
+                "TwoSided", "Autoprint",  "Department"
             ]
+        
             # apply new columns
             app._configure_columns()
 
     
     def on_view_hidden(self, app):
         """Called when view is hidden - reset column headers"""
+        print("on_view_hidden()")
         # reset column headers
         self.columns = [
             "PrinterName", "PrinterModel", "SlotName", "PaperFormat",
@@ -159,8 +161,55 @@ class SlotCariDoc(BaseView):
         ]
 
 
-    def delete(self, app, row):
-        messagebox.showwarning(
+    def delete(self, app, selected_rows):
+
+        if not selected_rows:
+            return
+
+        if not messagebox.askyesno(
             "Delete",
-            "Deletion for slot view must be handled per-table (not implemented)."
-        )
+            "Are you sure you want to delete the selected CARIdoc assignment(s)?"
+        ):
+            return
+
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+
+                for row in selected_rows:
+                    printer_name = row[0]    # PrinterName
+                    slot_name    = row[2]    # SlotName
+                    caridoc      = row[7]    # CARIdoc
+                    bureau_id    = row[10]   # BureauID
+
+                    # Safety check: only delete real assignments
+                    if caridoc is None or bureau_id is None:
+                        continue
+
+                    cur.execute("""
+                        DELETE FROM slot_caridocs
+                        WHERE PrinterName = ?
+                        AND SlotName = ?
+                        AND CARIdoc = ?
+                        AND BureauID = ?
+                    """, (printer_name, slot_name, caridoc, bureau_id))
+
+            app.refresh_view()
+            messagebox.showinfo(
+                "Success",
+                f"{len(selected_rows)} assignment(s) deleted successfully."
+            )
+
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror(
+                "Error",
+                f"Cannot delete assignment(s):\n{str(e)}"
+            )
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Unexpected error:\n{str(e)}"
+            )
+
+
+        

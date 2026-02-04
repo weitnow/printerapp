@@ -1,4 +1,4 @@
-from app import PrinterApp
+from printer_app import PrinterApp
 import tkinter as tk
 
 root = tk.Tk()

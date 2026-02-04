@@ -107,18 +107,22 @@ class BaseView(ABC):
 
 
     @abstractmethod
-    def delete(self, app, row):
+    def delete(self, app, selected_rows):
         """Delete method must be implemented by each view"""
         pass
-
+    
+    @abstractmethod
     def get_query(self):
         """Override this method if you need dynamic queries"""
         return self.query
-
+    
+    
     def on_view_shown(self, app, frame):
         """Called when view is shown - override for custom behavior"""
         pass
-    
+
     def on_view_hidden(self, app):
         """Called when view is hidden - override for cleanup"""
         pass
+
+
