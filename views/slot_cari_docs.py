@@ -141,16 +141,30 @@ class SlotCariDoc(BaseView):
                 deleted = 0
 
                 for row in selected_rows:
-                    printer_name = row[col["PrinterName"]] if "PrinterName" in col else self.filtered_printer
+                    printer_name = (row[col["PrinterName"]] if "PrinterName" in col else None) or app.last_selected_printer or self.filtered_printer
                     slot_name    = row[col["SlotName"]]
                     caridoc      = row[col["CARIdoc"]]
-                    bureau_id    = row[col["BureauID"]] if "BureauID" in col else self.filtered_bureau
+                    bureau_id    = (row[col["BureauID"]] if "BureauID" in col else None) or app.last_selected_bureau or self.filtered_bureau
 
-                    if None in (printer_name, slot_name, caridoc, bureau_id):
-                        messagebox.showwarning(
-                            "Skipped",
-                            "One or more rows were missing required data and could not be deleted."
+                    missing_fields = []
+
+                    if printer_name is None:
+                        missing_fields.append("Printer")
+                    if slot_name is None:
+                        missing_fields.append("Slot")
+                    if caridoc is None:
+                        missing_fields.append("CARIdoc")
+                    if bureau_id is None:
+                        missing_fields.append("BureauID")
+
+                    if missing_fields:
+                        message = (
+                            "One or more rows are missing required data and could not be deleted.\n\n"
+                            "Missing fields:\n"
+                            + "\n".join(f"  • {field}" for field in missing_fields)
                         )
+
+                        messagebox.showwarning("Skipped", message)
                         return
 
                     cur.execute("""

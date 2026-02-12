@@ -81,10 +81,10 @@ class BaseView(ABC):
     #used in bureaus.py
     def show_caridocs_from_bureaus(self, app, row_value, col):
         # if there is a set printer name filter, use it
+        bureau_id = row_value[0]  # BureauID is the first column
         if self.filtered_printer:                                
-            app.switch_view("slot_cari_docs", filter_printer=self.filtered_printer)
+            app.switch_view("slot_cari_docs", filter_printer=self.filtered_printer, last_selected_bureau=bureau_id)
         else:
-            bureau_id = row_value[0]  # BureauID is the first column
             app.switch_view("slot_cari_docs", filter_bureau=bureau_id, last_selected_bureau=bureau_id)
 
     #used in bureaus.py
