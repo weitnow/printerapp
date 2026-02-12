@@ -124,7 +124,6 @@ class SlotCariDoc(BaseView):
 
 
     def delete(self, app, selected_rows):
-
         if not selected_rows:
             return
 
@@ -135,18 +134,24 @@ class SlotCariDoc(BaseView):
             return
 
         try:
+            col = {name: i for i, name in enumerate(self.columns)}
+
             with db.get_connection() as conn:
                 cur = conn.cursor()
+                deleted = 0
 
                 for row in selected_rows:
-                    printer_name = row[0]    # PrinterName
-                    slot_name    = row[2]    # SlotName
-                    caridoc      = row[7]    # CARIdoc
-                    bureau_id    = row[10]   # BureauID
+                    printer_name = row[col["PrinterName"]] if "PrinterName" in col else self.filtered_printer
+                    slot_name    = row[col["SlotName"]]
+                    caridoc      = row[col["CARIdoc"]]
+                    bureau_id    = row[col["BureauID"]] if "BureauID" in col else self.filtered_bureau
 
-                    # Safety check: only delete real assignments
-                    if caridoc is None or bureau_id is None:
-                        continue
+                    if None in (printer_name, slot_name, caridoc, bureau_id):
+                        messagebox.showwarning(
+                            "Skipped",
+                            "One or more rows were missing required data and could not be deleted."
+                        )
+                        return
 
                     cur.execute("""
                         DELETE FROM slot_caridocs
@@ -155,23 +160,15 @@ class SlotCariDoc(BaseView):
                         AND CARIdoc = ?
                         AND BureauID = ?
                     """, (printer_name, slot_name, caridoc, bureau_id))
+                    deleted += 1
 
-            app.refresh_view()
-            messagebox.showinfo(
-                "Success",
-                f"{len(selected_rows)} assignment(s) deleted successfully."
-            )
+            if deleted:
+                app.refresh_view()
+                messagebox.showinfo("Success", f"{deleted} assignment(s) deleted successfully.")
 
         except sqlite3.IntegrityError as e:
-            messagebox.showerror(
-                "Error",
-                f"Cannot delete assignment(s):\n{str(e)}"
-            )
+            messagebox.showerror("Error", f"Cannot delete assignment(s):\n{str(e)}")
         except Exception as e:
-            messagebox.showerror(
-                "Error",
-                f"Unexpected error:\n{str(e)}"
-            )
-
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
 
         
