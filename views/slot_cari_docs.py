@@ -46,18 +46,17 @@ class SlotCariDoc(BaseView):
         self.filtered_printer = None
 
     def get_query(self):
-        if self.filtered_printer and self.filtered_slot:
-            return f"""
-            SELECT DISTINCT
+        base = """
+            SELECT {distinct}
                 sc.CARIdoc,
                 cd.BeschreibungFormular,
+                pn.PrinterName,
                 ps.SlotName,
+                ps.Bemerkung AS SlotBemerkung,
                 ps.PaperFormat,
                 ps.TwoSided,
                 ps.Autoprint,
-                ps.Bemerkung AS SlotBemerkung,
-                f.Fachabteilung,
-                pn.PrinterName
+                f.Fachabteilung
             FROM printernames pn
             LEFT JOIN printerslots ps ON pn.PrinterName = ps.PrinterName
             LEFT JOIN slot_caridocs sc
@@ -67,59 +66,24 @@ class SlotCariDoc(BaseView):
             LEFT JOIN bureaus b ON sc.BureauID = b.BureauID
             LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
             LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
+        """
+
+        if self.filtered_printer and self.filtered_slot:
+            return base.format(distinct="DISTINCT") + f"""
             WHERE pn.PrinterName = '{self.filtered_printer}'
-              AND ps.SlotName = '{self.filtered_slot}'
-            ORDER BY ps.SlotName                  
+            AND ps.SlotName = '{self.filtered_slot}'
+            ORDER BY ps.SlotName
             """
         elif self.filtered_printer:
-            return f"""
-            SELECT DISTINCT
-                sc.CARIdoc,
-                cd.BeschreibungFormular,
-                pn.PrinterName,
-                ps.SlotName,
-                ps.Bemerkung AS SlotBemerkung,
-                ps.PaperFormat,
-                ps.TwoSided,
-                ps.Autoprint,
-                f.Fachabteilung
-            FROM printernames pn
-            LEFT JOIN printerslots ps ON pn.PrinterName = ps.PrinterName
-            LEFT JOIN slot_caridocs sc
-                ON ps.PrinterName = sc.PrinterName
-                AND ps.SlotName = sc.SlotName
-            LEFT JOIN caridocs cd ON sc.CARIdoc = cd.CARIdoc
-            LEFT JOIN bureaus b ON sc.BureauID = b.BureauID
-            LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
-            LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
+            return base.format(distinct="DISTINCT") + f"""
             WHERE pn.PrinterName = '{self.filtered_printer}'
-            ORDER BY ps.SlotName                  
+            ORDER BY ps.SlotName
             """
-        elif self.filtered_bureau: 
-            return f"""
-            SELECT
-                sc.CARIdoc,
-                cd.BeschreibungFormular,
-                pn.PrinterName,
-                ps.SlotName,
-                ps.Bemerkung AS SlotBemerkung,
-                ps.PaperFormat,
-                ps.TwoSided,
-                ps.Autoprint,
-                f.Fachabteilung
-            FROM printernames pn
-            LEFT JOIN printerslots ps ON pn.PrinterName = ps.PrinterName
-            LEFT JOIN slot_caridocs sc
-                ON ps.PrinterName = sc.PrinterName
-                AND ps.SlotName = sc.SlotName
-            LEFT JOIN caridocs cd ON sc.CARIdoc = cd.CARIdoc
-            LEFT JOIN bureaus b ON sc.BureauID = b.BureauID
-            LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
-            LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
+        elif self.filtered_bureau:
+            return base.format(distinct="") + f"""
             WHERE b.BureauID = {self.filtered_bureau}
             ORDER BY pn.PrinterName, ps.SlotName
             """
-        
         # otherwise return full query
         return self.query
     
