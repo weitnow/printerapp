@@ -1,0 +1,303 @@
+========================================
+TABLE: sqlite_sequence
+========================================
+
+Schema:
+CREATE TABLE sqlite_sequence(name,seq)
+
+Columns:
+(0, 'name', '', 0, None, 0)
+(1, 'seq', '', 0, None, 0)
+
+Foreign Keys:
+[]
+
+Unique Indexes:
+
+========================================
+TABLE: lieugestion
+========================================
+
+Schema:
+CREATE TABLE lieugestion (
+    StandortID INTEGER PRIMARY KEY,
+    Standort TEXT NOT NULL UNIQUE,
+    CHECK (length(trim(Standort)) > 0)  -- No empty/whitespace-only strings
+)
+
+Columns:
+(0, 'StandortID', 'INTEGER', 0, None, 1)
+(1, 'Standort', 'TEXT', 1, None, 0)
+
+Foreign Keys:
+[]
+
+Unique Indexes:
+(0, 'sqlite_autoindex_lieugestion_1', 1, 'u', 0)
+
+========================================
+TABLE: fachabteilung
+========================================
+
+Schema:
+CREATE TABLE fachabteilung (
+    FachabteilungID INTEGER PRIMARY KEY,
+    Fachabteilung TEXT NOT NULL UNIQUE,
+    CHECK (length(trim(Fachabteilung)) > 0)  -- No empty/whitespace-only strings
+)
+
+Columns:
+(0, 'FachabteilungID', 'INTEGER', 0, None, 1)
+(1, 'Fachabteilung', 'TEXT', 1, None, 0)
+
+Foreign Keys:
+[]
+
+Unique Indexes:
+(0, 'sqlite_autoindex_fachabteilung_1', 1, 'u', 0)
+
+========================================
+TABLE: printermodels
+========================================
+
+Schema:
+CREATE TABLE printermodels (
+    PrinterModel TEXT PRIMARY KEY,
+    CHECK (length(trim(PrinterModel)) > 0)  -- No empty/whitespace-only strings
+)
+
+Columns:
+(0, 'PrinterModel', 'TEXT', 0, None, 1)
+
+Foreign Keys:
+[]
+
+Unique Indexes:
+(0, 'sqlite_autoindex_printermodels_1', 1, 'pk', 0)
+
+========================================
+TABLE: druckeinlage
+========================================
+
+Schema:
+CREATE TABLE druckeinlage (
+    FormatDruckeinlage TEXT PRIMARY KEY,
+    WidthMM REAL CHECK (WidthMM IS NULL OR WidthMM > 0),   -- NULL or positive only
+    HeightMM REAL CHECK (HeightMM IS NULL OR HeightMM > 0), -- NULL or positive only
+    CHECK (length(trim(FormatDruckeinlage)) > 0)  -- No empty format names
+)
+
+Columns:
+(0, 'FormatDruckeinlage', 'TEXT', 0, None, 1)
+(1, 'WidthMM', 'REAL', 0, None, 0)
+(2, 'HeightMM', 'REAL', 0, None, 0)
+
+Foreign Keys:
+[]
+
+Unique Indexes:
+(0, 'sqlite_autoindex_druckeinlage_1', 1, 'pk', 0)
+
+========================================
+TABLE: printersettings
+========================================
+
+Schema:
+CREATE TABLE printersettings (
+    CanonPrinterSettings TEXT PRIMARY KEY,
+    SettingsPNG BLOB,  -- Binary data for settings image
+    CHECK (length(trim(CanonPrinterSettings)) > 0)  -- No empty setting names
+)
+
+Columns:
+(0, 'CanonPrinterSettings', 'TEXT', 0, None, 1)
+(1, 'SettingsPNG', 'BLOB', 0, None, 0)
+
+Foreign Keys:
+[]
+
+Unique Indexes:
+(0, 'sqlite_autoindex_printersettings_1', 1, 'pk', 0)
+
+========================================
+TABLE: caridocs
+========================================
+
+Schema:
+CREATE TABLE caridocs (
+    CARIdoc TEXT PRIMARY KEY,
+    FormatCARIDoc TEXT,
+    FormatDruckeinlage TEXT,
+    BeschreibungFormular TEXT,
+    CanonPrinterSettings TEXT,
+    
+    CHECK (length(trim(CARIdoc)) > 0),  -- No empty CARIdoc names
+               
+    FOREIGN KEY (FormatDruckeinlage)
+        REFERENCES druckeinlage(FormatDruckeinlage)
+        ON DELETE RESTRICT,
+
+    FOREIGN KEY (CanonPrinterSettings)
+        REFERENCES printersettings(CanonPrinterSettings)
+        ON DELETE RESTRICT
+)
+
+Columns:
+(0, 'CARIdoc', 'TEXT', 0, None, 1)
+(1, 'FormatCARIDoc', 'TEXT', 0, None, 0)
+(2, 'FormatDruckeinlage', 'TEXT', 0, None, 0)
+(3, 'BeschreibungFormular', 'TEXT', 0, None, 0)
+(4, 'CanonPrinterSettings', 'TEXT', 0, None, 0)
+
+Foreign Keys:
+[(0, 0, 'printersettings', 'CanonPrinterSettings', 'CanonPrinterSettings', 'NO ACTION', 'RESTRICT', 'NONE'), (1, 0, 'druckeinlage', 'FormatDruckeinlage', 'FormatDruckeinlage', 'NO ACTION', 'RESTRICT', 'NONE')]
+
+Unique Indexes:
+(0, 'sqlite_autoindex_caridocs_1', 1, 'pk', 0)
+
+========================================
+TABLE: printernames
+========================================
+
+Schema:
+CREATE TABLE printernames (
+    PrinterName TEXT PRIMARY KEY,
+    PrinterModel TEXT NOT NULL,
+    StandortID INTEGER,  -- Optional: printers without location allowed
+    
+    CHECK (length(trim(PrinterName)) > 0),  -- No empty printer names
+               
+    FOREIGN KEY (PrinterModel)
+        REFERENCES printermodels(PrinterModel)
+        ON DELETE RESTRICT,
+
+    FOREIGN KEY (StandortID)
+        REFERENCES lieugestion(StandortID)
+        ON DELETE RESTRICT
+)
+
+Columns:
+(0, 'PrinterName', 'TEXT', 0, None, 1)
+(1, 'PrinterModel', 'TEXT', 1, None, 0)
+(2, 'StandortID', 'INTEGER', 0, None, 0)
+
+Foreign Keys:
+[(0, 0, 'lieugestion', 'StandortID', 'StandortID', 'NO ACTION', 'RESTRICT', 'NONE'), (1, 0, 'printermodels', 'PrinterModel', 'PrinterModel', 'NO ACTION', 'RESTRICT', 'NONE')]
+
+Unique Indexes:
+(0, 'sqlite_autoindex_printernames_1', 1, 'pk', 0)
+
+========================================
+TABLE: printerslots
+========================================
+
+Schema:
+CREATE TABLE printerslots (
+    PrinterName TEXT NOT NULL,
+    SlotName TEXT NOT NULL,
+    PaperFormat TEXT,
+    TwoSided BOOLEAN NOT NULL DEFAULT 0,  -- Default to one-sided
+    Inspect BOOLEAN NOT NULL DEFAULT 0,   -- Default to no inspection
+    Bemerkung TEXT,
+    
+    CHECK (length(trim(PrinterName)) > 0),  -- No empty names
+    CHECK (length(trim(SlotName)) > 0),     -- No empty slot names
+               
+    PRIMARY KEY (PrinterName, SlotName),
+               
+    FOREIGN KEY (PrinterName)
+        REFERENCES printernames(PrinterName)
+        ON DELETE CASCADE  -- Delete slots when printer is deleted
+)
+
+Columns:
+(0, 'PrinterName', 'TEXT', 1, None, 1)
+(1, 'SlotName', 'TEXT', 1, None, 2)
+(2, 'PaperFormat', 'TEXT', 0, None, 0)
+(3, 'TwoSided', 'BOOLEAN', 1, '0', 0)
+(4, 'Inspect', 'BOOLEAN', 1, '0', 0)
+(5, 'Bemerkung', 'TEXT', 0, None, 0)
+
+Foreign Keys:
+[(0, 0, 'printernames', 'PrinterName', 'PrinterName', 'NO ACTION', 'CASCADE', 'NONE')]
+
+Unique Indexes:
+(0, 'sqlite_autoindex_printerslots_1', 1, 'pk', 0)
+
+========================================
+TABLE: bureaus
+========================================
+
+Schema:
+CREATE TABLE bureaus (
+    BureauID INTEGER PRIMARY KEY,
+    Bureau TEXT NOT NULL UNIQUE,  -- Bureau names are unique across all locations
+    FachabteilungID INTEGER NOT NULL,
+    StandortID INTEGER NOT NULL,
+    
+    CHECK (length(trim(Bureau)) > 0),  -- No empty bureau names
+               
+    FOREIGN KEY (FachabteilungID)
+        REFERENCES fachabteilung(FachabteilungID)
+        ON DELETE RESTRICT,
+
+    FOREIGN KEY (StandortID)
+        REFERENCES lieugestion(StandortID)
+        ON DELETE RESTRICT
+)
+
+Columns:
+(0, 'BureauID', 'INTEGER', 0, None, 1)
+(1, 'Bureau', 'TEXT', 1, None, 0)
+(2, 'FachabteilungID', 'INTEGER', 1, None, 0)
+(3, 'StandortID', 'INTEGER', 1, None, 0)
+
+Foreign Keys:
+[(0, 0, 'lieugestion', 'StandortID', 'StandortID', 'NO ACTION', 'RESTRICT', 'NONE'), (1, 0, 'fachabteilung', 'FachabteilungID', 'FachabteilungID', 'NO ACTION', 'RESTRICT', 'NONE')]
+
+Unique Indexes:
+(0, 'sqlite_autoindex_bureaus_1', 1, 'u', 0)
+
+========================================
+TABLE: slot_caridocs
+========================================
+
+Schema:
+CREATE TABLE slot_caridocs (
+    PrinterName TEXT NOT NULL,
+    SlotName TEXT NOT NULL,
+    CARIdoc TEXT NOT NULL,
+    BureauID INTEGER NOT NULL,
+    Bemerkung TEXT,
+    
+    CHECK (length(trim(PrinterName)) > 0),  -- No empty names
+    CHECK (length(trim(SlotName)) > 0),
+    CHECK (length(trim(CARIdoc)) > 0),
+               
+    PRIMARY KEY (PrinterName, SlotName, CARIdoc, BureauID),
+               
+    FOREIGN KEY (PrinterName, SlotName)
+        REFERENCES printerslots(PrinterName, SlotName)
+        ON DELETE CASCADE,  -- if printerslots is deleted, the caridoc where the printerslot was assigned will be deleted automatically
+
+    FOREIGN KEY (CARIdoc)
+        REFERENCES caridocs(CARIdoc)
+        ON DELETE RESTRICT,  -- Don't allow CARIdoc deletion if in use
+
+    FOREIGN KEY (BureauID)
+        REFERENCES bureaus(BureauID)
+        ON DELETE RESTRICT   -- Don't allow bureau deletion if in use
+)
+
+Columns:
+(0, 'PrinterName', 'TEXT', 1, None, 1)
+(1, 'SlotName', 'TEXT', 1, None, 2)
+(2, 'CARIdoc', 'TEXT', 1, None, 3)
+(3, 'BureauID', 'INTEGER', 1, None, 4)
+(4, 'Bemerkung', 'TEXT', 0, None, 0)
+
+Foreign Keys:
+[(0, 0, 'bureaus', 'BureauID', 'BureauID', 'NO ACTION', 'RESTRICT', 'NONE'), (1, 0, 'caridocs', 'CARIdoc', 'CARIdoc', 'NO ACTION', 'RESTRICT', 'NONE'), (2, 0, 'printerslots', 'PrinterName', 'PrinterName', 'NO ACTION', 'CASCADE', 'NONE'), (2, 1, 'printerslots', 'SlotName', 'SlotName', 'NO ACTION', 'CASCADE', 'NONE')]
+
+Unique Indexes:
+(0, 'sqlite_autoindex_slot_caridocs_1', 1, 'pk', 0)
