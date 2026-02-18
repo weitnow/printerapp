@@ -43,7 +43,6 @@ class SlotCariDoc(BaseView):
     
     def __init__(self):
         super().__init__()
-        self.filtered_printer = None
 
     def get_query(self):
         base = """

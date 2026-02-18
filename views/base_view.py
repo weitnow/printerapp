@@ -1,6 +1,5 @@
 from tkinter import ttk, messagebox
 from abc import ABC, abstractmethod
-import db # Import the db module
 
 
 # =====================
@@ -99,7 +98,6 @@ class BaseView(ABC):
         printer_name = row_value[0]  # PrinterName is the first column
         slot_name = row_value[1]     # SlotName is the second column
         app.switch_view("slot_cari_docs", filter_printer=printer_name, filter_slot=slot_name)
-
 
     
     ### --- --- --- --- --- --- --- --- --- ###
