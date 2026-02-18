@@ -4,7 +4,7 @@ from tkinter import messagebox
 import db  # Import the db module
 
 class SlotPrinter(BaseView):
-    name = "printer slots"
+    name = "printer_slots"
     columns = ["PrinterName", "SlotName*", "PaperFormat", "TwoSided", "Autoprint", "Bemerkung"]
     columns_actions = {
         "#2": "show_caridocs_of_slot"

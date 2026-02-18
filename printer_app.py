@@ -156,7 +156,7 @@ class PrinterApp:
         self.views = {
             "printers": PrintersView(),
             "bureaus": BureausView(),
-            "printer slots": SlotPrinter(),
+            "printer_slots": SlotPrinter(),
             "slot_cari_docs": SlotCariDoc(),
             "departments": DepartmentView(),
             "printer_models": PrinterModels(),
@@ -181,16 +181,6 @@ class PrinterApp:
         if last_selected_bureau is not None:
             self.last_selected_bureau = last_selected_bureau
 
-        #TODO remove debug print
-        print("\n--- SWITCHING VIEW ---")
-        print(f"{'view_name:':<30}{view_name}")
-        print(f"{'filtered_printer:':<30}{self.current_view.filtered_printer if self.current_view else 'None'}")
-        print(f"{'filtered_bureau:':<30}{self.current_view.filtered_bureau if self.current_view else 'None'}")
-        print(f"{'filtered_slot:':<30}{self.current_view.filtered_slot if self.current_view else 'None'}")
-        print(f"{'last_selected_printer:':<30}{last_selected_printer}")
-        print(f"{'last_selected_bureau:':<30}{last_selected_bureau}")
-        print("-----------------------\n")
-          
 
         """Switch to a different view with optional parameters"""
         if view_name not in self.views:
@@ -228,12 +218,23 @@ class PrinterApp:
             'filter_printer': (
                 getattr(self.current_view, 'filtered_printer', None)
                 or kwargs.get('filter_printer')
-    ),
-}
+                ),
+            }
             self.navigation_history.append(history_entry)
 
         
         self.current_view = target_view
+
+        #TODO remove debug print
+        print("\n--- SWITCHING VIEW ---")
+        print(f"{'view_name:':<30}{view_name}")
+        print(f"{'filtered_printer:':<30}{self.current_view.filtered_printer if self.current_view else 'None'}")
+        print(f"{'filtered_bureau:':<30}{self.current_view.filtered_bureau if self.current_view else 'None'} ")
+        print(f"{'filtered_slot:':<30}{self.current_view.filtered_slot if self.current_view else 'None'}")
+        print(f"{'last_selected_printer:':<30}{last_selected_printer}")
+        print(f"{'last_selected_bureau:':<30}{last_selected_bureau}")
+        print("-----------------------\n")
+
         self.filter_entry.delete(0, tk.END)
         
         columns = self.current_view.columns

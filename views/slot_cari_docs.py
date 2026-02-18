@@ -89,8 +89,10 @@ class SlotCariDoc(BaseView):
     def set_filter(self, printer_name=None, slot_name=None, bureau_id=None):
         """Set the printer, slot, and bureau filters"""
         self.filtered_printer = printer_name
-        self.filtered_slot = slot_name
         self.filtered_bureau = bureau_id
+        self.filtered_slot = slot_name
+
+
     
     def clear_filter(self):
         """Clear the printer filter"""

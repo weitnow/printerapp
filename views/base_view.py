@@ -58,7 +58,7 @@ class BaseView(ABC):
     def show_printer_slots(self, app, row_value, col):
         """Switch to printer slots view filtered by printer name"""
         printer_name = row_value[0]  # PrinterName is the first column
-        app.switch_view("printer slots", filter_printer=printer_name, last_selected_printer=printer_name)
+        app.switch_view("printer_slots", filter_printer=printer_name, last_selected_printer=printer_name)
 
     #used in printers.py
     def show_caridocs(self, app, row_value, col):

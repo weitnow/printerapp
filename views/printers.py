@@ -108,6 +108,7 @@ class PrintersView(BaseView):
         self.filtered_printer = None
         self.filtered_slot = None
     
+    
     def clear_filter(self):
         """Clear the bureau filter"""
         self.filtered_bureau = None
