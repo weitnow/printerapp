@@ -13,6 +13,7 @@ from views.caridocs import CaridocView
 import threading
 from typing import List, Tuple, Dict, Any, Optional
 from functools import partial
+from textwrap import dedent
 
 
 class PrinterApp:
@@ -180,7 +181,15 @@ class PrinterApp:
         if last_selected_bureau is not None:
             self.last_selected_bureau = last_selected_bureau
 
-        print(view_name, self.last_selected_printer, self.last_selected_bureau)
+        #TODO remove debug print
+        print("\n--- SWITCHING VIEW ---")
+        print(f"{'view_name:':<30}{view_name}")
+        print(f"{'filtered_printer:':<30}{self.current_view.filtered_printer if self.current_view else 'None'}")
+        print(f"{'filtered_bureau:':<30}{self.current_view.filtered_bureau if self.current_view else 'None'}")
+        print(f"{'filtered_slot:':<30}{self.current_view.filtered_slot if self.current_view else 'None'}")
+        print(f"{'last_selected_printer:':<30}{last_selected_printer}")
+        print(f"{'last_selected_bureau:':<30}{last_selected_bureau}")
+        print("-----------------------\n")
           
 
         """Switch to a different view with optional parameters"""

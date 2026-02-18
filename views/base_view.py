@@ -13,6 +13,8 @@ class BaseView(ABC):
     def __init__(self):
         super().__init__()
         self.filtered_printer = None
+        self.filtered_bureau = None
+        self.filtered_slot = None
         self.back_button = None
 
     def fetch(self, conn):
