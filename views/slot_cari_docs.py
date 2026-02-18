@@ -73,6 +73,12 @@ class SlotCariDoc(BaseView):
             AND ps.SlotName = '{self.filtered_slot}'
             ORDER BY ps.SlotName
             """
+        elif self.filtered_printer and self.filtered_bureau:
+            return base.format(distinct="") + f"""
+            WHERE pn.PrinterName = '{self.filtered_printer}'
+            AND b.BureauID = {self.filtered_bureau}
+            ORDER BY pn.PrinterName, ps.SlotName
+            """
         elif self.filtered_printer: #check this
             return base.format(distinct="DISTINCT") + f"""
             WHERE pn.PrinterName = '{self.filtered_printer}'
