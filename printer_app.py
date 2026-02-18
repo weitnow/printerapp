@@ -204,8 +204,13 @@ class PrinterApp:
                 printer_name=kwargs.get('filter_printer'),
                 slot_name=kwargs.get('filter_slot')
             )
+        elif 'filter_printer' in kwargs and 'filter_bureau' in kwargs and hasattr(target_view, 'set_filter'):
+            target_view.set_filter(
+                printer_name=kwargs['filter_printer'],
+                bureau_id=kwargs.get('filter_bureau')
+            )
         elif 'filter_printer' in kwargs and hasattr(target_view, 'set_filter'):
-            target_view.set_filter(kwargs['filter_printer'])
+            target_view.set_filter(printer_name=kwargs['filter_printer'])
         elif 'filter_bureau' in kwargs and hasattr(target_view, 'set_filter'):
             target_view.set_filter(bureau_id=kwargs['filter_bureau'])
         elif hasattr(target_view, 'clear_filter'):
@@ -270,6 +275,7 @@ class PrinterApp:
         except Exception as e:
             messagebox.showerror("Database Error", f"Failed to load data:\n{str(e)}")
             self.current_rows = []
+        
 
     def _restore_last_selection(self) -> None: 
         """Restore selection but only for printers or bureaus"""

@@ -73,7 +73,7 @@ class BaseView(ABC):
         printer_name = row_value[0]  # PrinterName is the first column
         app.switch_view("bureaus", filter_printer=printer_name, last_selected_printer=printer_name
         )
-    #used in printer.py
+    #used in printers.py
     def show_printer_caridocs_bureaus(self, app, row_value, col):
         """Switch to caridoc view filtered by printer name"""
         printer_name = row_value[0]  # PrinterName is the first column
@@ -84,7 +84,7 @@ class BaseView(ABC):
         # if there is a set printer name filter, use it
         bureau_id = row_value[0]  # BureauID is the first column
         if self.filtered_printer:                                
-            app.switch_view("slot_cari_docs", filter_printer=self.filtered_printer, last_selected_bureau=bureau_id)
+            app.switch_view("slot_cari_docs", filter_printer=self.filtered_printer, filter_bureau=bureau_id, last_selected_bureau=bureau_id)
         else:
             app.switch_view("slot_cari_docs", filter_bureau=bureau_id, last_selected_bureau=bureau_id)
 
