@@ -195,4 +195,5 @@ class SlotCariDoc(BaseView):
         except Exception as e:
             messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
 
+
         

@@ -116,8 +116,8 @@ class BureausView(BaseView):
         except sqlite3.IntegrityError as e:
             messagebox.showerror(
                 "Error",
-                "Cannot delete one or more bureaus because they are still referenced "
-                "in slot_caridocs.\n\n" + str(e)
+                "Cannot delete bureau(s) because there are still referenced "
+                "Printers and/or CARIdocs. Delete them first.\n\n" + str(e)
             )
         except Exception as e:
             messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")

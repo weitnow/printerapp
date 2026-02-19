@@ -105,7 +105,6 @@ class BaseView(ABC):
     ### --- --- --- --- --- --- --- --- --- ###
 
 
-
     @abstractmethod
     def delete(self, app, selected_rows):
         """Delete method must be implemented by each view"""
