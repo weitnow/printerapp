@@ -151,7 +151,7 @@ class SlotCariDoc(BaseView):
                     printer_name = (row[col["PrinterName"]] if "PrinterName" in col else None) or app.last_selected_printer or self.filtered_printer
                     slot_name    = row[col["SlotName"]]
                     caridoc      = row[col["CARIdoc"]]
-                    bureau_id    = (row[col["BureauID"]] if "BureauID" in col else None) or app.last_selected_bureau or self.filtered_bureau
+                    bureau_id    = (row[col["BureauID"]] if "BureauID" in col else None) or self.filtered_bureau
 
                     missing_fields = []
 
@@ -170,6 +170,9 @@ class SlotCariDoc(BaseView):
                             "Missing fields:\n"
                             + "\n".join(f"  • {field}" for field in missing_fields)
                         )
+
+                        if "BureauID" in missing_fields:
+                            message += "\n\nGo back to printers, select a Bureau, then a CARIdoc."
 
                         messagebox.showwarning("Skipped", message)
                         return
