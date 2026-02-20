@@ -257,6 +257,11 @@ class PrinterApp:
         self.refresh_view()
         self._update_back_button()
         
+        # Clean up any widgets from previous view in dynamic_frame before showing new view
+        for widget in list(self.dynamic_frame.winfo_children()):
+            if self.back_button is None or widget != self.back_button:
+                widget.destroy()
+        
         if hasattr(self.current_view, 'on_view_shown'):
             self.current_view.on_view_shown(self, self.dynamic_frame)
 
