@@ -1,13 +1,18 @@
 from views.base_view import BaseView
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 import tkinter as tk
 import db
+import json
+import os
+
+
+SAVED_QUERIES_FILE = "saved_queries.json"
 
 
 class SQLQueryView(BaseView):
     name = "sql_query"
-    columns = []  # No treeview columns - we own the UI via dynamic_frame
-    query = "SELECT 1"  # Dummy query so refresh_view doesn't crash
+    columns = []
+    query = "SELECT 1"
 
     def __init__(self):
         super().__init__()
@@ -15,6 +20,8 @@ class SQLQueryView(BaseView):
         self._result_tree = None
         self._sql_input = None
         self._info_label = None
+        self._saved_queries_listbox = None
+        self._saved_queries: dict[str, str] = self._load_queries_from_file()
 
     # ------------------------------------------------------------------ #
     #  BaseView abstract method stubs                                      #
@@ -31,8 +38,6 @@ class SQLQueryView(BaseView):
     # ------------------------------------------------------------------ #
 
     def on_view_shown(self, app, frame):
-        """Build the SQL tool UI inside dynamic_frame."""
-        # Clear any previous contents
         for widget in frame.winfo_children():
             widget.destroy()
         self._frame_built = False
@@ -40,15 +45,11 @@ class SQLQueryView(BaseView):
         self._build_ui(app, frame)
         self._frame_built = True
 
-        # Pack the dynamic_frame so it's visible (app may have hidden it)
         frame.pack(fill="both", expand=True,
                    before=self._get_treeview_frame(app))
-
-        # Hide the main treeview - we don't need it
         self._set_treeview_visible(app, False)
 
     def on_view_hidden(self, app):
-        """Restore the main treeview when leaving this view."""
         self._set_treeview_visible(app, True)
 
     # ------------------------------------------------------------------ #
@@ -58,32 +59,84 @@ class SQLQueryView(BaseView):
     def _build_ui(self, app, frame):
         frame.configure(relief="flat")
 
-        # ── SQL input label ──
-        tk.Label(frame, text="SQL Command:", anchor="w",
-                 font=("Segoe UI", 9, "bold")).pack(fill="x", padx=6, pady=(6, 0))
+        # ── Outer paned layout: left = saved queries, right = editor+results ──
+        paned = tk.PanedWindow(frame, orient="horizontal", sashrelief="raised",
+                               sashwidth=5)
+        paned.pack(fill="both", expand=True, padx=6, pady=6)
+
+        # ── LEFT PANEL: Saved queries ──
+        left = tk.Frame(paned, width=200)
+        paned.add(left, minsize=150)
+
+        tk.Label(left, text="Saved Queries", font=("Segoe UI", 9, "bold"),
+                 anchor="w").pack(fill="x", pady=(4, 2))
+
+        list_frame = tk.Frame(left)
+        list_frame.pack(fill="both", expand=True)
+
+        sb = ttk.Scrollbar(list_frame, orient="vertical")
+        sb.pack(side="right", fill="y")
+
+        self._saved_queries_listbox = tk.Listbox(
+            list_frame, yscrollcommand=sb.set,
+            selectmode="single", activestyle="dotbox",
+            font=("Segoe UI", 9)
+        )
+        self._saved_queries_listbox.pack(side="left", fill="both", expand=True)
+        sb.config(command=self._saved_queries_listbox.yview)
+
+        # Double-click loads query into editor
+        self._saved_queries_listbox.bind("<Double-1>",
+                                         lambda e: self._load_selected_query())
+
+        btn_row = tk.Frame(left)
+        btn_row.pack(fill="x", pady=(4, 0))
+
+        tk.Button(btn_row, text="Load",   width=6,
+                  command=self._load_selected_query).pack(side="left")
+        tk.Button(btn_row, text="Rename", width=6,
+                  command=self._rename_selected_query).pack(side="left", padx=2)
+        tk.Button(btn_row, text="Delete", width=6, fg="red",
+                  command=self._delete_selected_query).pack(side="left")
+
+        self._refresh_query_list()
+
+        # ── RIGHT PANEL: Editor + Results ──
+        right = tk.Frame(paned)
+        paned.add(right, minsize=400)
+
+        # ── SQL input label + Save button ──
+        header = tk.Frame(right)
+        header.pack(fill="x", pady=(4, 0))
+
+        tk.Label(header, text="SQL Command:",
+                 font=("Segoe UI", 9, "bold")).pack(side="left")
+        tk.Button(header, text="💾  Save Query",
+                  font=("Segoe UI", 8),
+                  command=self._save_current_query).pack(side="right")
 
         # ── Text box ──
-        self._sql_input = tk.Text(frame, height=6,
+        self._sql_input = tk.Text(right, height=7,
                                   font=("Courier New", 10),
                                   relief="solid", borderwidth=1)
-        self._sql_input.pack(fill="x", padx=6, pady=(2, 4))
+        self._sql_input.pack(fill="x", pady=(2, 4))
         self._sql_input.bind("<Control-Return>", lambda e: self._run_query(app))
 
         # ── Button row ──
-        btn_row = tk.Frame(frame)
-        btn_row.pack(fill="x", padx=6, pady=(0, 4))
+        btn_row2 = tk.Frame(right)
+        btn_row2.pack(fill="x", pady=(0, 4))
 
-        tk.Button(btn_row, text="▶  Run  (Ctrl+Enter)",
+        tk.Button(btn_row2, text="▶  Run  (Ctrl+Enter)",
                   bg="#4CAF50", fg="white", font=("Segoe UI", 9, "bold"),
                   command=lambda: self._run_query(app)).pack(side="left")
-        tk.Button(btn_row, text="Clear Input",
+        tk.Button(btn_row2, text="Clear Input",
                   command=self._clear_input).pack(side="left", padx=(6, 0))
-        tk.Button(btn_row, text="Clear Results",
+        tk.Button(btn_row2, text="Clear Results",
                   command=self._clear_results).pack(side="left", padx=(6, 0))
 
         # ── Quick-query buttons ──
-        quick_frame = tk.LabelFrame(frame, text="Quick Queries", padx=4, pady=2)
-        quick_frame.pack(fill="x", padx=6, pady=(0, 4))
+        quick_frame = tk.LabelFrame(right, text="Quick Queries", padx=4, pady=2)
+        quick_frame.pack(fill="x", pady=(0, 4))
 
         quick_queries = [
             ("Tables",        "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"),
@@ -97,8 +150,8 @@ class SQLQueryView(BaseView):
                       command=lambda s=sql: self._set_query(s)).pack(side="left", padx=2)
 
         # ── Results treeview ──
-        results_frame = tk.Frame(frame, relief="solid", borderwidth=1)
-        results_frame.pack(fill="both", expand=True, padx=6, pady=(0, 4))
+        results_frame = tk.Frame(right, relief="solid", borderwidth=1)
+        results_frame.pack(fill="both", expand=True, pady=(0, 4))
 
         self._result_tree = ttk.Treeview(results_frame, show="headings",
                                          selectmode="extended")
@@ -115,9 +168,9 @@ class SQLQueryView(BaseView):
         results_frame.columnconfigure(0, weight=1)
 
         # ── Info / status bar ──
-        self._info_label = tk.Label(frame, text="", anchor="w",
+        self._info_label = tk.Label(right, text="", anchor="w",
                                     font=("Segoe UI", 8), fg="gray")
-        self._info_label.pack(fill="x", padx=6, pady=(0, 4))
+        self._info_label.pack(fill="x", pady=(0, 2))
 
     # ------------------------------------------------------------------ #
     #  Query execution                                                     #
@@ -135,37 +188,157 @@ class SQLQueryView(BaseView):
                 cursor = conn.cursor()
                 cursor.execute(sql)
 
-                if cursor.description:                      # SELECT-like
+                if cursor.description:
                     cols = [d[0] for d in cursor.description]
                     rows = cursor.fetchall()
 
                     self._result_tree["columns"] = cols
                     for col in cols:
                         self._result_tree.heading(col, text=col, anchor="w")
-                        self._result_tree.column(col, width=120,
-                                                 minwidth=50, anchor="w",
-                                                 stretch=True)
+                        self._result_tree.column(col, width=120, minwidth=50,
+                                                 anchor="w", stretch=True)
                     for i, row in enumerate(rows):
                         tag = "even" if i % 2 == 0 else "odd"
-                        self._result_tree.insert("", "end",
-                                                 values=row, tags=(tag,))
+                        self._result_tree.insert("", "end", values=row, tags=(tag,))
 
                     self._result_tree.tag_configure("even", background="white")
                     self._result_tree.tag_configure("odd",  background="#f2f2f2")
-
                     self._info_label.config(
                         text=f"✔  {len(rows)} row(s) returned.", fg="green")
-
-                else:                                       # DML / DDL
+                else:
                     conn.commit()
                     self._info_label.config(
-                        text=f"✔  OK — {cursor.rowcount} row(s) affected.",
-                        fg="green")
-                    # Refresh the main app view if data may have changed
+                        text=f"✔  OK — {cursor.rowcount} row(s) affected.", fg="green")
                     app.refresh_view()
 
         except Exception as e:
             self._info_label.config(text=f"✘  {e}", fg="red")
+
+    # ------------------------------------------------------------------ #
+    #  Save / Load                                                         #
+    # ------------------------------------------------------------------ #
+
+    def _save_current_query(self):
+        sql = self._sql_input.get("1.0", "end").strip()
+        if not sql:
+            messagebox.showwarning("Empty Query", "Nothing to save.")
+            return
+
+        # Check if a query is selected - offer to overwrite it
+        selected = self._saved_queries_listbox.curselection()
+        initial_name = ""
+        if selected:
+            initial_name = self._saved_queries_listbox.get(selected[0])
+
+        name = simpledialog.askstring(
+            "Save Query",
+            "Enter a name for this query:",
+            initialvalue=initial_name
+        )
+        if not name:
+            return
+
+        name = name.strip()
+        if not name:
+            return
+
+        if name in self._saved_queries:
+            if not messagebox.askyesno("Overwrite?",
+                                       f"'{name}' already exists. Overwrite?"):
+                return
+
+        self._saved_queries[name] = sql
+        self._persist_queries()
+        self._refresh_query_list()
+
+        # Select the just-saved entry
+        items = list(self._saved_queries.keys())
+        if name in items:
+            idx = items.index(name)
+            self._saved_queries_listbox.selection_clear(0, "end")
+            self._saved_queries_listbox.selection_set(idx)
+            self._saved_queries_listbox.see(idx)
+
+        self._info_label.config(text=f"✔  Query saved as '{name}'.", fg="green")
+
+    def _load_selected_query(self):
+        selected = self._saved_queries_listbox.curselection()
+        if not selected:
+            return
+        name = self._saved_queries_listbox.get(selected[0])
+        sql = self._saved_queries.get(name, "")
+        self._set_query(sql)
+        self._info_label.config(text=f"✔  Loaded '{name}'.", fg="gray")
+
+    def _rename_selected_query(self):
+        selected = self._saved_queries_listbox.curselection()
+        if not selected:
+            messagebox.showwarning("No Selection", "Select a query to rename.")
+            return
+
+        old_name = self._saved_queries_listbox.get(selected[0])
+        new_name = simpledialog.askstring(
+            "Rename Query", "New name:", initialvalue=old_name
+        )
+        if not new_name or new_name.strip() == old_name:
+            return
+
+        new_name = new_name.strip()
+        if new_name in self._saved_queries:
+            messagebox.showwarning("Name taken",
+                                   f"A query named '{new_name}' already exists.")
+            return
+
+        # Preserve insertion order
+        self._saved_queries = {
+            (new_name if k == old_name else k): v
+            for k, v in self._saved_queries.items()
+        }
+        self._persist_queries()
+        self._refresh_query_list()
+
+    def _delete_selected_query(self):
+        selected = self._saved_queries_listbox.curselection()
+        if not selected:
+            messagebox.showwarning("No Selection", "Select a query to delete.")
+            return
+
+        name = self._saved_queries_listbox.get(selected[0])
+        if not messagebox.askyesno("Delete Query",
+                                   f"Delete saved query '{name}'?"):
+            return
+
+        del self._saved_queries[name]
+        self._persist_queries()
+        self._refresh_query_list()
+
+    # ------------------------------------------------------------------ #
+    #  Persistence                                                         #
+    # ------------------------------------------------------------------ #
+
+    def _load_queries_from_file(self) -> dict:
+        if os.path.exists(SAVED_QUERIES_FILE):
+            try:
+                with open(SAVED_QUERIES_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                return {}
+        return {}
+
+    def _persist_queries(self):
+        try:
+            with open(SAVED_QUERIES_FILE, "w", encoding="utf-8") as f:
+                json.dump(self._saved_queries, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            messagebox.showerror("Save Error",
+                                 f"Could not save queries to file:\n{e}")
+
+    def _refresh_query_list(self):
+        if not self._saved_queries_listbox:
+            return
+        self._saved_queries_listbox.delete(0, "end")
+        for name in self._saved_queries:
+            self._saved_queries_listbox.insert("end", name)
 
     # ------------------------------------------------------------------ #
     #  Helpers                                                             #
@@ -187,7 +360,6 @@ class SQLQueryView(BaseView):
             self._info_label.config(text="")
 
     def _get_treeview_frame(self, app):
-        """Return the treeview's parent frame so we can pack before it."""
         return app.tree.master
 
     def _set_treeview_visible(self, app, visible: bool):

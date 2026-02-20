@@ -133,12 +133,14 @@ class PrintersView(BaseView):
         current_model = row[4]
         current_standort = row[5]
 
-        # --- Fetch available Standort options and current StandortID ---
+        # --- Fetch available options ---
         try:
             with db.get_connection() as conn:
                 cur = conn.cursor()
                 cur.execute("SELECT StandortID, Standort FROM lieugestion ORDER BY Standort")
-                locations = cur.fetchall()  # [(id, name), ...]
+                locations = cur.fetchall()
+                cur.execute("SELECT PrinterModel FROM printermodels ORDER BY PrinterModel")
+                models = [r[0] for r in cur.fetchall()]
                 cur.execute("SELECT StandortID FROM printernames WHERE PrinterName = ?", (current_printer_name,))
                 result = cur.fetchone()
                 current_standort_id = result[0] if result else None
@@ -150,7 +152,7 @@ class PrintersView(BaseView):
         dialog = tk.Toplevel(app.root)
         dialog.title("Modify Printer")
         dialog.resizable(False, False)
-        dialog.grab_set()  # Modal
+        dialog.grab_set()
 
         pad = {"padx": 10, "pady": 5}
 
@@ -159,8 +161,12 @@ class PrintersView(BaseView):
         tk.Entry(dialog, textvariable=name_var, width=30).grid(row=0, column=1, **pad)
 
         tk.Label(dialog, text="Printer Model:").grid(row=1, column=0, sticky="e", **pad)
-        model_var = tk.StringVar(value=current_model or "")
-        tk.Entry(dialog, textvariable=model_var, width=30).grid(row=1, column=1, **pad)
+        model_var = tk.StringVar()
+        model_cb = ttk.Combobox(dialog, textvariable=model_var, values=models,
+                                state="readonly", width=28)
+        if current_model in models:
+            model_cb.current(models.index(current_model))
+        model_cb.grid(row=1, column=1, **pad)
 
         tk.Label(dialog, text="Standort:").grid(row=2, column=0, sticky="e", **pad)
         location_names = [loc[1] for loc in locations]
@@ -168,7 +174,6 @@ class PrintersView(BaseView):
         standort_var = tk.StringVar()
         standort_cb = ttk.Combobox(dialog, textvariable=standort_var, values=location_names,
                                     state="readonly", width=28)
-        # Pre-select current location
         if current_standort_id in location_ids:
             standort_cb.current(location_ids.index(current_standort_id))
         standort_cb.grid(row=2, column=1, **pad)
@@ -193,14 +198,17 @@ class PrintersView(BaseView):
             return
 
         # --- Validate ---
-        new_name    = name_var.get().strip()
-        new_model   = model_var.get().strip()
-        new_standort_name = standort_var.get()
+        new_name  = name_var.get().strip()
+        new_model = model_var.get()
 
         if not new_name:
             messagebox.showwarning("Warning", "Printer name cannot be empty.")
             return
+        if not new_model:
+            messagebox.showwarning("Warning", "Please select a valid printer model.")
+            return
 
+        new_standort_name = standort_var.get()
         selected_index = location_names.index(new_standort_name) if new_standort_name in location_names else None
         if selected_index is None:
             messagebox.showwarning("Warning", "Please select a valid location.")
@@ -226,7 +234,7 @@ class PrintersView(BaseView):
                                         "A printer with that name may already exist.")
         except Exception as e:
             messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
-        
+            
 
         
     def delete(self, app, selected_rows):

@@ -1,6 +1,6 @@
 from .base_view import BaseView
 import sqlite3
-from tkinter import messagebox, Button
+from tkinter import messagebox, Button, simpledialog
 import db  # Import the db module
 
 
@@ -15,6 +15,45 @@ class PrinterModels(BaseView):
 
     ORDER BY PrinterModel
     """
+
+    def modify(self, app, selected_rows):
+        if not selected_rows:
+            return
+        if len(selected_rows) > 1:
+            messagebox.showwarning("Warning", "Please select only one printer model to modify.")
+            return
+
+        col = {name: i for i, name in enumerate(self.columns)}
+        row = selected_rows[0]
+        current_model = row[col["PrinterModel"]]
+
+        new_model = simpledialog.askstring(
+            "Modify Printer Model",
+            "The change will be applied to all printers using this model.\nEnter new printer model name:",
+            initialvalue=current_model
+        )
+
+        if new_model is None:  # User cancelled
+            return
+        if not new_model.strip():
+            messagebox.showwarning("Warning", "Printer model name cannot be empty.")
+            return
+        if new_model.strip() == current_model:
+            return
+
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "UPDATE printermodels SET PrinterModel = ? WHERE PrinterModel = ?",
+                    (new_model.strip(), current_model)
+                )
+            app.refresh_view()
+            messagebox.showinfo("Success", "Printer model updated successfully.")
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Cannot update printer model:\n{str(e)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
 
 
     
@@ -56,5 +95,3 @@ class PrinterModels(BaseView):
             messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
 
 
-
-       

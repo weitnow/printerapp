@@ -111,14 +111,17 @@ def _create_schema(cursor):
         BeschreibungFormular TEXT,
         SettingsPNG BLOB,
         FOREIGN KEY (FormatDruckeinlage) REFERENCES druckeinlage
+            ON UPDATE CASCADE
     );
 
     CREATE TABLE printernames (
         PrinterName TEXT PRIMARY KEY,
         PrinterModel TEXT NOT NULL,
         StandortID INTEGER,
-        FOREIGN KEY (PrinterModel) REFERENCES printermodels,
-        FOREIGN KEY (StandortID) REFERENCES lieugestion
+        FOREIGN KEY (PrinterModel) REFERENCES printermodels
+            ON UPDATE CASCADE,
+        FOREIGN KEY (StandortID) REFERENCES lieugestion(StandortID)
+            ON UPDATE CASCADE
     );
 
     CREATE TABLE printerslots (
@@ -129,7 +132,9 @@ def _create_schema(cursor):
         Autoprint BOOLEAN DEFAULT 0,
         Bemerkung TEXT,
         PRIMARY KEY (PrinterName, SlotName),
-        FOREIGN KEY (PrinterName) REFERENCES printernames ON DELETE CASCADE
+        FOREIGN KEY (PrinterName) REFERENCES printernames 
+            ON DELETE CASCADE
+            ON UPDATE CASCADE
     );
 
     CREATE TABLE bureaus (
@@ -137,8 +142,10 @@ def _create_schema(cursor):
         Bureau TEXT UNIQUE,
         FachabteilungID INTEGER,
         StandortID INTEGER,
-        FOREIGN KEY (FachabteilungID) REFERENCES fachabteilung,
+        FOREIGN KEY (FachabteilungID) REFERENCES fachabteilung
+            ON UPDATE CASCADE,
         FOREIGN KEY (StandortID) REFERENCES lieugestion
+            ON UPDATE CASCADE
     );
 
     CREATE TABLE slot_caridocs (
@@ -150,7 +157,8 @@ def _create_schema(cursor):
         PRIMARY KEY (PrinterName, SlotName, CARIdoc, BureauID),
         FOREIGN KEY (PrinterName, SlotName)
             REFERENCES printerslots(PrinterName, SlotName)
-            ON DELETE CASCADE,
+            ON DELETE CASCADE
+            ON UPDATE CASCADE,
         FOREIGN KEY (CARIdoc) REFERENCES caridocs,
         FOREIGN KEY (BureauID) REFERENCES bureaus
     );
