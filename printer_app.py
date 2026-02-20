@@ -470,7 +470,10 @@ class PrinterApp:
             label=f"Delete ({len(selected_rows)})",
             command=partial(self.current_view.delete, self, selected_rows)
         )
-        
+        self.context_menu.add_command(
+            label="Add",
+            command=partial(self.current_view.add, self)
+        )
 
         # Add view-specific context menu items, by calling build_context_menu of the view if it exists
         if hasattr(self.current_view, "build_context_menu"):

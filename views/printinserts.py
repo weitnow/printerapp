@@ -17,6 +17,57 @@ class PrintInsertView(BaseView):
     ORDER BY FormatDruckeinlage
     """
 
+    def add(self, app):
+        """Add a new print insert to the database"""
+        format_name = simpledialog.askstring(
+            "Add Print Insert",
+            "Enter format name:",
+        )
+        if format_name is None:
+            return
+        format_name = format_name.strip()
+        if not format_name:
+            messagebox.showwarning("Warning", "Format name cannot be empty.")
+            return
+
+        width_str = simpledialog.askstring(
+            "Add Print Insert - Width",
+            f"Format: {format_name}\n\nEnter width in mm:",
+        )
+        if width_str is None:
+            return
+
+        height_str = simpledialog.askstring(
+            "Add Print Insert - Height",
+            f"Format: {format_name}\n\nEnter height in mm:",
+        )
+        if height_str is None:
+            return
+
+        try:
+            width = float(width_str.replace(",", "."))
+            height = float(height_str.replace(",", "."))
+        except ValueError:
+            messagebox.showwarning("Warning", "Width and height must be numeric.")
+            return
+
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    INSERT INTO druckeinlage (FormatDruckeinlage, WidthMM, HeightMM)
+                    VALUES (?, ?, ?)
+                    """,
+                    (format_name, width, height),
+                )
+            app.refresh_view()
+            messagebox.showinfo("Success", "Print insert added successfully.")
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Cannot add print insert:\n{str(e)}\nFormat may already exist.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
+
 
     def modify(self, app, selected_rows):
         if not selected_rows:

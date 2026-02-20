@@ -22,6 +22,43 @@ class CaridocView(BaseView):
     ORDER BY CARIdoc
     """
 
+    def add(self, app):
+        """Add a new CARIdoc to the database"""
+        caridoc = simpledialog.askstring(
+            "Add CARIdoc",
+            "Enter CARIdoc number:",
+        )
+        if caridoc is None:
+            return
+        caridoc = caridoc.strip()
+        if not caridoc:
+            messagebox.showwarning("Warning", "CARIdoc number cannot be empty.")
+            return
+
+        description = simpledialog.askstring(
+            "Add CARIdoc - Description",
+            f"CARIdoc: {caridoc}\n\nEnter description:",
+        )
+        if description is None:
+            return
+        if not description.strip():
+            messagebox.showwarning("Warning", "Description cannot be empty.")
+            return
+
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "INSERT INTO caridocs (CARIdoc, BeschreibungFormular) VALUES (?, ?)",
+                    (caridoc, description.strip()),
+                )
+            app.refresh_view()
+            messagebox.showinfo("Success", "CARIdoc added successfully.")
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Cannot add CARIdoc:\n{str(e)}\nCARIdoc may already exist.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
+
     def modify(self, app, selected_rows):
         if not selected_rows:
             return

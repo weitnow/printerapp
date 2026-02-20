@@ -16,6 +16,33 @@ class DepartmentView(BaseView):
     ORDER BY FachabteilungID
     """
 
+    def add(self, app):
+        """Add a new department to the database"""
+        new_name = simpledialog.askstring(
+            "Add Department",
+            "Enter new department name:",
+        )
+
+        if new_name is None:
+            return
+        if not new_name.strip():
+            messagebox.showwarning("Warning", "Department name cannot be empty.")
+            return
+
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "INSERT INTO fachabteilung (Fachabteilung) VALUES (?)",
+                    (new_name.strip(),),
+                )
+            app.refresh_view()
+            messagebox.showinfo("Success", "Department added successfully.")
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Cannot add department:\n{str(e)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
+
 
     def modify(self, app, selected_rows):
         if not selected_rows:

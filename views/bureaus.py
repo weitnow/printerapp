@@ -38,6 +38,109 @@ class BureausView(BaseView):
     """
 
 
+    def add(self, app):
+        """Add a new bureau to the database"""
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+
+                cur.execute("SELECT FachabteilungID, Fachabteilung FROM fachabteilung ORDER BY Fachabteilung")
+                departments = cur.fetchall()
+
+                cur.execute("SELECT StandortID, Standort FROM lieugestion ORDER BY StandortID")
+                locations = cur.fetchall()
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load lookup data:\n{str(e)}")
+            return
+
+        dialog = tk.Toplevel(app.root)
+        dialog.title("Add New Bureau")
+        dialog.resizable(False, False)
+        dialog.grab_set()
+
+        pad = {"padx": 10, "pady": 5}
+
+        tk.Label(dialog, text="Bureau name:").grid(row=0, column=0, sticky="e", **pad)
+        name_var = tk.StringVar()
+        tk.Entry(dialog, textvariable=name_var, width=30).grid(row=0, column=1, **pad)
+
+        tk.Label(dialog, text="Department:").grid(row=1, column=0, sticky="e", **pad)
+        dept_names = [d[1] for d in departments]
+        dept_ids = [d[0] for d in departments]
+        dept_var = tk.StringVar()
+        dept_cb = ttk.Combobox(dialog, textvariable=dept_var, values=dept_names, state="readonly", width=28)
+        dept_cb.grid(row=1, column=1, **pad)
+
+        tk.Label(dialog, text="Location:").grid(row=2, column=0, sticky="e", **pad)
+        loc_names = [l[1] for l in locations]
+        loc_ids = [l[0] for l in locations]
+        loc_var = tk.StringVar()
+        loc_cb = ttk.Combobox(dialog, textvariable=loc_var, values=loc_names, state="readonly", width=28)
+        loc_cb.grid(row=2, column=1, **pad)
+
+        confirmed = {"value": False}
+
+        def on_confirm():
+            confirmed["value"] = True
+            dialog.destroy()
+
+        def on_cancel():
+            dialog.destroy()
+
+        btn_frame = tk.Frame(dialog)
+        btn_frame.grid(row=3, column=0, columnspan=2, pady=10)
+        tk.Button(btn_frame, text="Add", width=10, command=on_confirm).pack(side="left", padx=5)
+        tk.Button(btn_frame, text="Cancel", width=10, command=on_cancel).pack(side="right", padx=5)
+
+        dialog.wait_window()
+
+        if not confirmed["value"]:
+            return
+
+        new_name = name_var.get().strip()
+        if not new_name:
+            messagebox.showwarning("Warning", "Bureau name cannot be empty.")
+            return
+
+        dept_name = dept_var.get()
+        loc_name = loc_var.get()
+
+        new_dept_id = None
+        new_loc_id = None
+
+        if dept_name:
+            try:
+                idx = dept_names.index(dept_name)
+                new_dept_id = dept_ids[idx]
+            except ValueError:
+                pass
+
+        if loc_name:
+            try:
+                idx = loc_names.index(loc_name)
+                new_loc_id = loc_ids[idx]
+            except ValueError:
+                pass
+
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    INSERT INTO bureaus (Bureau, FachabteilungID, StandortID)
+                    VALUES (?, ?, ?)
+                    """,
+                    (new_name, new_dept_id, new_loc_id),
+                )
+
+            app.refresh_view()
+            messagebox.showinfo("Success", "Bureau added successfully.")
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Cannot add bureau:\n{str(e)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
+
+
     def modify(self, app, selected_rows):
         if not selected_rows:
             return

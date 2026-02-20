@@ -16,6 +16,33 @@ class PrinterModels(BaseView):
     ORDER BY PrinterModel
     """
 
+    def add(self, app):
+        """Add a new printer model to the database"""
+        new_model = simpledialog.askstring(
+            "Add Printer Model",
+            "Enter new printer model name:",
+        )
+
+        if new_model is None:
+            return
+        if not new_model.strip():
+            messagebox.showwarning("Warning", "Printer model name cannot be empty.")
+            return
+
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "INSERT INTO printermodels (PrinterModel) VALUES (?)",
+                    (new_model.strip(),),
+                )
+            app.refresh_view()
+            messagebox.showinfo("Success", "Printer model added successfully.")
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Cannot add printer model:\n{str(e)}\nModel may already exist.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
+
     def modify(self, app, selected_rows):
         if not selected_rows:
             return

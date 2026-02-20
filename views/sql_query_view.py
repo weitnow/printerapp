@@ -27,6 +27,9 @@ class SQLQueryView(BaseView):
     #  BaseView abstract method stubs                                      #
     # ------------------------------------------------------------------ #
 
+    def add(self, app):
+        messagebox.showinfo("Info", "Use SQL commands to add records.")
+
     def delete(self, app, selected_rows):
         messagebox.showinfo("Info", "Use SQL commands to delete records.")
 

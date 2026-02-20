@@ -120,6 +120,99 @@ class PrintersView(BaseView):
     def on_view_shown(self, app, frame):
         """Called when view is shown - override for custom behavior"""
 
+    def add(self, app):
+        """Add a new printer to the database"""
+        # --- Fetch available options ---
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT StandortID, Standort FROM lieugestion ORDER BY Standort")
+                locations = cur.fetchall()
+                cur.execute("SELECT PrinterModel FROM printermodels ORDER BY PrinterModel")
+                models = [r[0] for r in cur.fetchall()]
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load data:\n{str(e)}")
+            return
+
+        # --- Build dialog ---
+        dialog = tk.Toplevel(app.root)
+        dialog.title("Add New Printer")
+        dialog.resizable(False, False)
+        dialog.grab_set()
+
+        pad = {"padx": 10, "pady": 5}
+
+        tk.Label(dialog, text="Printer Name:").grid(row=0, column=0, sticky="e", **pad)
+        name_var = tk.StringVar()
+        tk.Entry(dialog, textvariable=name_var, width=30).grid(row=0, column=1, **pad)
+
+        tk.Label(dialog, text="Printer Model:").grid(row=1, column=0, sticky="e", **pad)
+        model_var = tk.StringVar()
+        model_cb = ttk.Combobox(dialog, textvariable=model_var, values=models,
+                                state="readonly", width=28)
+        model_cb.grid(row=1, column=1, **pad)
+
+        tk.Label(dialog, text="Standort:").grid(row=2, column=0, sticky="e", **pad)
+        location_names = [loc[1] for loc in locations]
+        location_ids   = [loc[0] for loc in locations]
+        standort_var = tk.StringVar()
+        standort_cb = ttk.Combobox(dialog, textvariable=standort_var, values=location_names,
+                                    state="readonly", width=28)
+        standort_cb.grid(row=2, column=1, **pad)
+
+        confirmed = {"value": False}
+
+        def on_confirm():
+            confirmed["value"] = True
+            dialog.destroy()
+
+        def on_cancel():
+            dialog.destroy()
+
+        btn_frame = tk.Frame(dialog)
+        btn_frame.grid(row=3, column=0, columnspan=2, pady=10)
+        tk.Button(btn_frame, text="Add",   width=10, command=on_confirm).pack(side="left",  padx=5)
+        tk.Button(btn_frame, text="Cancel", width=10, command=on_cancel).pack(side="right", padx=5)
+
+        dialog.wait_window()
+
+        if not confirmed["value"]:
+            return
+
+        # --- Validate ---
+        new_name  = name_var.get().strip()
+        new_model = model_var.get()
+
+        if not new_name:
+            messagebox.showwarning("Warning", "Printer name cannot be empty.")
+            return
+        if not new_model:
+            messagebox.showwarning("Warning", "Please select a valid printer model.")
+            return
+
+        new_standort_name = standort_var.get()
+        selected_index = location_names.index(new_standort_name) if new_standort_name in location_names else None
+        if selected_index is None:
+            messagebox.showwarning("Warning", "Please select a valid location.")
+            return
+        new_standort_id = location_ids[selected_index]
+
+        # --- Persist ---
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO printernames (PrinterName, PrinterModel, StandortID)
+                    VALUES (?, ?, ?)
+                """, (new_name, new_model, new_standort_id))
+
+            app.refresh_view()
+            messagebox.showinfo("Success", "Printer added successfully.")
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Cannot add printer:\n{str(e)}\n"
+                                        "A printer with that name may already exist.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
 
     def modify(self, app, selected_rows):
         if not selected_rows:
