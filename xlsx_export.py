@@ -127,13 +127,15 @@ def export_printer_data(
         
         # Export CARIdocs (Forms)
         log("Exporting forms data...")
+        # Export in the exact column layout that xlsx_import.py expects
+        # for the forms sheet: Formular, Format CARI-Doc, Format Druckeinlage,
+        # Beschreibung Formular.
         query_caridocs = """
         SELECT 
-            c.CARIdoc as Formular,
-            c.FormatCARIDoc as 'Format CARI-Doc',
-            c.FormatDruckeinlage as 'Format Druckeinlage',
-            c.BeschreibungFormular as 'Beschreibung Formular',
-            c.CanonPrinterSettings as 'Canon Printer Settings'
+            c.CARIdoc           AS Formular,
+            c.FormatCARIDoc     AS 'Format CARI-Doc',
+            c.FormatDruckeinlage AS 'Format Druckeinlage',
+            c.BeschreibungFormular AS 'Beschreibung Formular'
         FROM 
             caridocs c
         ORDER BY 

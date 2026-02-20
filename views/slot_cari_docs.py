@@ -1,6 +1,6 @@
 from .base_view import BaseView
 import sqlite3
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 import db  # Import the db module
 
 
@@ -97,14 +97,89 @@ class SlotCariDoc(BaseView):
         self.filtered_printer = printer_name
         self.filtered_bureau = bureau_id
         self.filtered_slot = slot_name
-
-
     
     def clear_filter(self):
         """Clear the printer filter"""
         self.filtered_printer = None
         self.filtered_slot = None
         self.filtered_bureau = None
+
+
+    def modify(self, app, selected_rows):
+        if not selected_rows:
+            return
+        if len(selected_rows) > 1:
+            messagebox.showwarning("Warning", "Please select only one assignment to modify.")
+            return
+
+        col = {name: i for i, name in enumerate(self.columns)}
+        row = selected_rows[0]
+
+        printer_name = (row[col["PrinterName"]] if "PrinterName" in col else None) or app.last_selected_printer or self.filtered_printer
+        slot_name = row[col["SlotName"]] if "SlotName" in col else None
+        caridoc = row[col["CARIdoc"]] if "CARIdoc" in col else None
+        bureau_id = (row[col["BureauID"]] if "BureauID" in col else None) or self.filtered_bureau
+
+        if not all([printer_name, slot_name, caridoc, bureau_id]):
+            messagebox.showwarning(
+                "Modify not possible",
+                "This assignment cannot be uniquely identified. Please navigate from a printer and bureau, then try again.",
+            )
+            return
+
+        current_slot_remark = row[col["SlotRemark"]] if "SlotRemark" in col else ""
+        current_bureau_remark = row[col["BureauRemark"]] if "BureauRemark" in col else ""
+
+        new_slot_remark = simpledialog.askstring(
+            "Modify Slot Remark",
+            f"Printer: {printer_name}\nSlot: {slot_name}\nCARIdoc: {caridoc}\n\nEnter new slot remark:",
+            initialvalue=current_slot_remark or "",
+        )
+        if new_slot_remark is None:
+            return
+
+        new_bureau_remark = current_bureau_remark
+        if "BureauRemark" in col:
+            new_bureau_remark = simpledialog.askstring(
+                "Modify Bureau Remark",
+                f"BureauID: {bureau_id}\n\nEnter new bureau remark:",
+                initialvalue=current_bureau_remark or "",
+            )
+            if new_bureau_remark is None:
+                new_bureau_remark = current_bureau_remark
+
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+
+                cur.execute(
+                    """
+                    UPDATE printerslots
+                    SET Bemerkung = ?
+                    WHERE PrinterName = ?
+                      AND SlotName = ?
+                    """,
+                    (new_slot_remark, printer_name, slot_name),
+                )
+
+                cur.execute(
+                    """
+                    UPDATE slot_caridocs
+                    SET Bemerkung = ?
+                    WHERE PrinterName = ?
+                      AND SlotName = ?
+                      AND CARIdoc = ?
+                      AND BureauID = ?
+                    """,
+                    (new_bureau_remark, printer_name, slot_name, caridoc, bureau_id),
+                )
+
+            app.refresh_view()
+            messagebox.showinfo("Success", "Remarks updated successfully.")
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Cannot update remarks:\n{str(e)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
 
     def on_view_shown(self, app, frame):
         """Called when view is shown - update columns if filtered"""

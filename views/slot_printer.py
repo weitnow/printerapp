@@ -1,6 +1,6 @@
 from .base_view import BaseView
 import sqlite3
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 import db  # Import the db module
 
 class SlotPrinter(BaseView):
@@ -51,6 +51,65 @@ class SlotPrinter(BaseView):
     def clear_filter(self):
         """Clear the printer filter"""
         self.filtered_printer = None
+    
+    def modify(self, app, selected_rows):
+        if not selected_rows:
+            return
+        if len(selected_rows) > 1:
+            messagebox.showwarning("Warning", "Please select only one slot to modify.")
+            return
+
+        col = {name: i for i, name in enumerate(self.columns)}
+        row = selected_rows[0]
+
+        printer_name = row[col["PrinterName"]]
+        slot_name = row[col["SlotName*"]]
+        current_format = row[col["PaperFormat"]]
+        current_two_sided = row[col["TwoSided"]]
+        current_autoprint = row[col["Autoprint"]]
+        current_remark = row[col["Bemerkung"]]
+
+        new_format = simpledialog.askstring(
+            "Modify Slot - Paper Format",
+            f"Printer: {printer_name}\nSlot: {slot_name}\n\nEnter new paper format:",
+            initialvalue=current_format,
+        )
+        if new_format is None:
+            return
+        new_format = new_format.strip()
+        if not new_format:
+            messagebox.showwarning("Warning", "Paper format cannot be empty.")
+            return
+
+        new_remark = simpledialog.askstring(
+            "Modify Slot - Remark",
+            f"Printer: {printer_name}\nSlot: {slot_name}\n\nEnter new remark (optional):",
+            initialvalue=current_remark or "",
+        )
+        if new_remark is None:
+            # Allow cancel of remark edit without aborting whole modify
+            new_remark = current_remark
+
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    UPDATE printerslots
+                    SET PaperFormat = ?,
+                        Bemerkung = ?
+                    WHERE PrinterName = ?
+                      AND SlotName = ?
+                    """,
+                    (new_format, new_remark, printer_name, slot_name),
+                )
+
+            app.refresh_view()
+            messagebox.showinfo("Success", "Slot updated successfully.")
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Cannot update slot:\n{str(e)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
     
     def delete(self, app, selected_rows):
         if not selected_rows:

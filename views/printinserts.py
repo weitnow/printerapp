@@ -1,6 +1,6 @@
 from .base_view import BaseView
 import sqlite3
-from tkinter import messagebox, Button
+from tkinter import messagebox, Button, simpledialog
 import db  # Import the db module
 
 class PrintInsertView(BaseView):
@@ -18,8 +18,60 @@ class PrintInsertView(BaseView):
     """
 
 
-    
+    def modify(self, app, selected_rows):
+        if not selected_rows:
+            return
+        if len(selected_rows) > 1:
+            messagebox.showwarning("Warning", "Please select only one print insert to modify.")
+            return
 
+        col = {name: i for i, name in enumerate(self.columns)}
+        row = selected_rows[0]
+
+        format_name = row[col["FormatDruckeinlage"]]
+        current_width = row[col["Breite mm"]]
+        current_height = row[col["Höhe mm"]]
+
+        new_width_str = simpledialog.askstring(
+            "Modify Print Insert - Width",
+            f"Format: {format_name}\n\nEnter new width in mm:",
+            initialvalue=str(current_width),
+        )
+        if new_width_str is None:
+            return
+
+        new_height_str = simpledialog.askstring(
+            "Modify Print Insert - Height",
+            f"Format: {format_name}\n\nEnter new height in mm:",
+            initialvalue=str(current_height),
+        )
+        if new_height_str is None:
+            return
+
+        try:
+            new_width = float(new_width_str.replace(",", "."))
+            new_height = float(new_height_str.replace(",", "."))
+        except ValueError:
+            messagebox.showwarning("Warning", "Width and height must be numeric.")
+            return
+
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    UPDATE druckeinlage
+                    SET WidthMM = ?, HeightMM = ?
+                    WHERE FormatDruckeinlage = ?
+                    """,
+                    (new_width, new_height, format_name),
+                )
+            app.refresh_view()
+            messagebox.showinfo("Success", "Print insert updated successfully.")
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Cannot update print insert:\n{str(e)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
 
 
     def delete(self, app, selected_rows):
