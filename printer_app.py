@@ -447,11 +447,11 @@ class PrinterApp:
         """Show context menu on right-click"""
         row_id = self.tree.identify_row(event.y)
         
-        if not row_id or not self.current_view:
+        if not self.current_view:
             return
         
-        # Wenn Row nicht selektiert ist -> nur diese selektieren
-        if row_id not in self.tree.selection():
+        # If a row is clicked and not selected, select it
+        if row_id and row_id not in self.tree.selection():
             self.tree.selection_set(row_id)
 
         selected_rows = [
@@ -461,19 +461,27 @@ class PrinterApp:
 
         self.context_menu.delete(0, "end")
 
-        # Add base context actions which are common for all views
-        self.context_menu.add_command(
-            label="Modify",
-            command=partial(self.current_view.modify, self, selected_rows)
-        )
-        self.context_menu.add_command(
-            label=f"Delete ({len(selected_rows)})",
-            command=partial(self.current_view.delete, self, selected_rows)
-        )
-        self.context_menu.add_command(
-            label="Add",
-            command=partial(self.current_view.add, self)
-        )
+        # Only show Modify and Delete if a row is selected
+        if row_id:
+            # Add base context actions which are common for all views
+            self.context_menu.add_command(
+                label="Modify",
+                command=partial(self.current_view.modify, self, selected_rows)
+            )
+            self.context_menu.add_command(
+                label=f"Delete ({len(selected_rows)})",
+                command=partial(self.current_view.delete, self, selected_rows)
+            )
+            self.context_menu.add_command(
+                label="Add",
+                command=partial(self.current_view.add, self)
+            )
+        else:
+            # No row selected, only show Add
+            self.context_menu.add_command(
+                label="Add",
+                command=partial(self.current_view.add, self)
+            )
 
         # Add view-specific context menu items, by calling build_context_menu of the view if it exists
         if hasattr(self.current_view, "build_context_menu"):
