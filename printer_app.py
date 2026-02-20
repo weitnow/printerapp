@@ -5,7 +5,7 @@ from views.printers import PrintersView
 from views.bureaus import BureausView
 from views.slot_cari_docs import SlotCariDoc
 from views.slot_printer import SlotPrinter
-from views.departments import DepartmentView
+from views.departments import DepartmentView    
 from views.printer_models import PrinterModels
 from views.lieugestion import LieugestionView
 from views.printinserts import PrintInsertView
@@ -14,6 +14,8 @@ import threading
 from typing import List, Tuple, Dict, Any, Optional
 from functools import partial
 from textwrap import dedent
+
+from views.sql_query_view import SQLQueryView
 
 
 class PrinterApp:
@@ -144,6 +146,10 @@ class PrinterApp:
             label="Caridocs",
             command=partial(self.switch_view, "caridocs", clear_history=True)
         )
+        view_menu.add_command(
+            label="SQL Query",
+            command=partial(self.switch_view, "sql_query", clear_history=True)
+        )
         
         # File Menu
         file_menu = tk.Menu(menubar, tearoff=0)
@@ -162,7 +168,8 @@ class PrinterApp:
             "printer_models": PrinterModels(),
             "lieugestion": LieugestionView(),
             "printinserts": PrintInsertView(),
-            "caridocs": CaridocView()
+            "caridocs": CaridocView(),
+            "sql_query": SQLQueryView()
         }
 
     def switch_view(
@@ -456,9 +463,14 @@ class PrinterApp:
 
         # Add base context actions which are common for all views
         self.context_menu.add_command(
+            label="Modify",
+            command=partial(self.current_view.modify, self, selected_rows)
+        )
+        self.context_menu.add_command(
             label=f"Delete ({len(selected_rows)})",
             command=partial(self.current_view.delete, self, selected_rows)
         )
+        
 
         # Add view-specific context menu items, by calling build_context_menu of the view if it exists
         if hasattr(self.current_view, "build_context_menu"):

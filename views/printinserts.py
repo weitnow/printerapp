@@ -5,7 +5,7 @@ import db  # Import the db module
 
 class PrintInsertView(BaseView):
     name = "printinserts"
-    columns = ["Druckeinlage", "Breite mm", "Höhe mm"]
+    columns = ["FormatDruckeinlage", "Breite mm", "Höhe mm"]
     columns_actions = {}
     query = """
     SELECT
@@ -40,9 +40,9 @@ class PrintInsertView(BaseView):
                 deleted = 0
                 
                 for row in selected_rows:
-                    print_insert = (row[col["Druckeinlage"]])
+                    print_insert = (row[col["FormatDruckeinlage"]])
 
-                    cur.execute("DELETE FROM druckeinlage WHERE Druckeinlage = ?",
+                    cur.execute("DELETE FROM druckeinlage WHERE FormatDruckeinlage = ?",
                     (print_insert,)
                     )
 

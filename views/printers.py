@@ -1,8 +1,12 @@
 from .base_view import BaseView
 import sqlite3
-from tkinter import messagebox
+
 import db  # Import the db module
 from functools import partial
+from tkinter import ttk
+from tkinter import messagebox
+import tkinter as tk
+
 
 # =====================
 # Concrete Views
@@ -115,6 +119,113 @@ class PrintersView(BaseView):
 
     def on_view_shown(self, app, frame):
         """Called when view is shown - override for custom behavior"""
+
+
+    def modify(self, app, selected_rows):
+        if not selected_rows:
+            return
+        if len(selected_rows) > 1:
+            messagebox.showwarning("Warning", "Please select only one printer to modify.")
+            return
+
+        row = selected_rows[0]
+        current_printer_name = row[0]
+        current_model = row[4]
+        current_standort = row[5]
+
+        # --- Fetch available Standort options and current StandortID ---
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT StandortID, Standort FROM lieugestion ORDER BY Standort")
+                locations = cur.fetchall()  # [(id, name), ...]
+                cur.execute("SELECT StandortID FROM printernames WHERE PrinterName = ?", (current_printer_name,))
+                result = cur.fetchone()
+                current_standort_id = result[0] if result else None
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not load data:\n{str(e)}")
+            return
+
+        # --- Build dialog ---
+        dialog = tk.Toplevel(app.root)
+        dialog.title("Modify Printer")
+        dialog.resizable(False, False)
+        dialog.grab_set()  # Modal
+
+        pad = {"padx": 10, "pady": 5}
+
+        tk.Label(dialog, text="Printer Name:").grid(row=0, column=0, sticky="e", **pad)
+        name_var = tk.StringVar(value=current_printer_name)
+        tk.Entry(dialog, textvariable=name_var, width=30).grid(row=0, column=1, **pad)
+
+        tk.Label(dialog, text="Printer Model:").grid(row=1, column=0, sticky="e", **pad)
+        model_var = tk.StringVar(value=current_model or "")
+        tk.Entry(dialog, textvariable=model_var, width=30).grid(row=1, column=1, **pad)
+
+        tk.Label(dialog, text="Standort:").grid(row=2, column=0, sticky="e", **pad)
+        location_names = [loc[1] for loc in locations]
+        location_ids   = [loc[0] for loc in locations]
+        standort_var = tk.StringVar()
+        standort_cb = ttk.Combobox(dialog, textvariable=standort_var, values=location_names,
+                                    state="readonly", width=28)
+        # Pre-select current location
+        if current_standort_id in location_ids:
+            standort_cb.current(location_ids.index(current_standort_id))
+        standort_cb.grid(row=2, column=1, **pad)
+
+        confirmed = {"value": False}
+
+        def on_confirm():
+            confirmed["value"] = True
+            dialog.destroy()
+
+        def on_cancel():
+            dialog.destroy()
+
+        btn_frame = tk.Frame(dialog)
+        btn_frame.grid(row=3, column=0, columnspan=2, pady=10)
+        tk.Button(btn_frame, text="Save",   width=10, command=on_confirm).pack(side="left",  padx=5)
+        tk.Button(btn_frame, text="Cancel", width=10, command=on_cancel).pack(side="right", padx=5)
+
+        dialog.wait_window()
+
+        if not confirmed["value"]:
+            return
+
+        # --- Validate ---
+        new_name    = name_var.get().strip()
+        new_model   = model_var.get().strip()
+        new_standort_name = standort_var.get()
+
+        if not new_name:
+            messagebox.showwarning("Warning", "Printer name cannot be empty.")
+            return
+
+        selected_index = location_names.index(new_standort_name) if new_standort_name in location_names else None
+        if selected_index is None:
+            messagebox.showwarning("Warning", "Please select a valid location.")
+            return
+        new_standort_id = location_ids[selected_index]
+
+        # --- Persist ---
+        try:
+            with db.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    UPDATE printernames
+                    SET PrinterName  = ?,
+                        PrinterModel = ?,
+                        StandortID   = ?
+                    WHERE PrinterName = ?
+                """, (new_name, new_model, new_standort_id, current_printer_name))
+
+            app.refresh_view()
+            messagebox.showinfo("Success", "Printer updated successfully.")
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Cannot update printer:\n{str(e)}\n"
+                                        "A printer with that name may already exist.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
         
 
         
