@@ -38,107 +38,306 @@ class BureausView(BaseView):
     """
 
 
-    def add(self, app):
-        """Add a new bureau to the database"""
-        try:
-            with db.get_connection() as conn:
-                cur = conn.cursor()
-
-                cur.execute("SELECT FachabteilungID, Fachabteilung FROM fachabteilung ORDER BY Fachabteilung")
-                departments = cur.fetchall()
-
-                cur.execute("SELECT StandortID, Standort FROM lieugestion ORDER BY StandortID")
-                locations = cur.fetchall()
-        except Exception as e:
-            messagebox.showerror("Error", f"Could not load lookup data:\n{str(e)}")
-            return
-
-        dialog = tk.Toplevel(app.root)
-        dialog.title("Add New Bureau")
-        dialog.resizable(False, False)
-        dialog.grab_set()
-
-        pad = {"padx": 10, "pady": 5}
-
-        tk.Label(dialog, text="Bureau name:").grid(row=0, column=0, sticky="e", **pad)
-        name_var = tk.StringVar()
-        tk.Entry(dialog, textvariable=name_var, width=30).grid(row=0, column=1, **pad)
-
-        tk.Label(dialog, text="Department:").grid(row=1, column=0, sticky="e", **pad)
-        dept_names = [d[1] for d in departments]
-        dept_ids = [d[0] for d in departments]
-        dept_var = tk.StringVar()
-        dept_cb = ttk.Combobox(dialog, textvariable=dept_var, values=dept_names, state="readonly", width=28)
-        dept_cb.grid(row=1, column=1, **pad)
-
-        tk.Label(dialog, text="Location:").grid(row=2, column=0, sticky="e", **pad)
-        loc_names = [l[1] for l in locations]
-        loc_ids = [l[0] for l in locations]
-        loc_var = tk.StringVar()
-        loc_cb = ttk.Combobox(dialog, textvariable=loc_var, values=loc_names, state="readonly", width=28)
-        loc_cb.grid(row=2, column=1, **pad)
-
-        confirmed = {"value": False}
-
-        def on_confirm():
-            confirmed["value"] = True
-            dialog.destroy()
-
-        def on_cancel():
-            dialog.destroy()
-
-        btn_frame = tk.Frame(dialog)
-        btn_frame.grid(row=3, column=0, columnspan=2, pady=10)
-        tk.Button(btn_frame, text="Add", width=10, command=on_confirm).pack(side="left", padx=5)
-        tk.Button(btn_frame, text="Cancel", width=10, command=on_cancel).pack(side="right", padx=5)
-
-        dialog.wait_window()
-
-        if not confirmed["value"]:
-            return
-
-        new_name = name_var.get().strip()
-        if not new_name:
-            messagebox.showwarning("Warning", "Bureau name cannot be empty.")
-            return
-
-        dept_name = dept_var.get()
-        loc_name = loc_var.get()
-
-        new_dept_id = None
-        new_loc_id = None
-
-        if dept_name:
-            try:
-                idx = dept_names.index(dept_name)
-                new_dept_id = dept_ids[idx]
-            except ValueError:
-                pass
-
-        if loc_name:
-            try:
-                idx = loc_names.index(loc_name)
-                new_loc_id = loc_ids[idx]
-            except ValueError:
-                pass
-
-        try:
-            with db.get_connection() as conn:
-                cur = conn.cursor()
-                cur.execute(
-                    """
-                    INSERT INTO bureaus (Bureau, FachabteilungID, StandortID)
-                    VALUES (?, ?, ?)
-                    """,
-                    (new_name, new_dept_id, new_loc_id),
+    def get_query(self):
+        """Return query, optionally filtered by printer name"""
+        if self.filtered_printer:
+            return f"""
+                SELECT
+                    b.BureauID,
+                    b.Bureau,
+                    (
+                        SELECT COUNT(DISTINCT sc.PrinterName)
+                        FROM slot_caridocs sc 
+                        WHERE sc.BureauID = b.BureauID
+                    ) AS 'Printers',
+                    (
+                        SELECT COUNT(*) 
+                        FROM (
+                            SELECT DISTINCT SlotName, CARIdoc
+                            FROM slot_caridocs sc 
+                            WHERE sc.BureauID = b.BureauID
+                            AND sc.PRINTERNAME = '{self.filtered_printer}'
+                            )
+                    ) AS 'Anzahl CARI-Docs',
+                    f.Fachabteilung,
+                    l.Standort
+                FROM bureaus b
+                LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
+                LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM slot_caridocs sc2
+                    WHERE sc2.BureauID = b.BureauID
+                    AND sc2.PrinterName = '{self.filtered_printer}'
                 )
+            """
+        return self.query
+    
+    def set_filter(self, printer_name=None):
+        """Set the printer filter"""
+        self.filtered_printer = printer_name
+   
+    
+    def clear_filter(self):
+        """Clear the printer filter"""
+        self.filtered_printer = None
 
-            app.refresh_view()
-            messagebox.showinfo("Success", "Bureau added successfully.")
-        except sqlite3.IntegrityError as e:
-            messagebox.showerror("Error", f"Cannot add bureau:\n{str(e)}")
-        except Exception as e:
-            messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
+    
+    def add(self, app):
+        """check if self.filtered_printer is set. If so, assign an existing bureau to the printer. If not, add a new bureau to the database"""
+        if self.filtered_printer:
+            # First check if the printer has printer slots
+            try:
+                with db.get_connection() as conn:
+                    cur = conn.cursor()
+                    
+                    # Check if printer has slots
+                    cur.execute(
+                        "SELECT SlotName FROM printerslots WHERE PrinterName = ? ORDER BY SlotName",
+                        (self.filtered_printer,)
+                    )
+                    slots = cur.fetchall()
+                    
+                    if not slots:
+                        messagebox.showwarning(
+                            "No Slots",
+                            f"Printer '{self.filtered_printer}' has no printer slots.\n\n"
+                            "Please create printer slots first before assigning bureaus."
+                        )
+                        return
+                    
+                    # Get available bureaus
+                    cur.execute("SELECT BureauID, Bureau FROM bureaus ORDER BY Bureau")
+                    all_bureaus = cur.fetchall()
+                    
+                    # Get available CARI docs
+                    cur.execute("SELECT CARIdoc FROM caridocs ORDER BY CARIdoc")
+                    all_caridocs = cur.fetchall()
+                    
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not load data:\n{str(e)}")
+                return
+            
+            # Create dialog for adding bureau-printer assignment
+            dialog = tk.Toplevel(app.root)
+            dialog.title(f"Assign Bureau to {self.filtered_printer}")
+            dialog.resizable(False, False)
+            dialog.grab_set()
+            
+            pad = {"padx": 10, "pady": 5}
+            
+            # Printer name (read-only)
+            tk.Label(dialog, text="Printer:").grid(row=0, column=0, sticky="e", **pad)
+            tk.Label(dialog, text=self.filtered_printer, font=("TkDefaultFont", 10, "bold")).grid(row=0, column=1, sticky="w", **pad)
+            
+            # Slot selection
+            tk.Label(dialog, text="Slot:").grid(row=1, column=0, sticky="e", **pad)
+            slot_names = [s[0] for s in slots]
+            slot_var = tk.StringVar()
+            slot_cb = ttk.Combobox(dialog, textvariable=slot_var, values=slot_names, state="readonly", width=28)
+            slot_cb.grid(row=1, column=1, **pad)
+            if slot_names:
+                slot_cb.current(0)
+            
+            # Bureau selection
+            tk.Label(dialog, text="Bureau:").grid(row=2, column=0, sticky="e", **pad)
+            bureau_names = [f"{b[1]} (ID: {b[0]})" for b in all_bureaus]
+            bureau_ids = [b[0] for b in all_bureaus]
+            bureau_var = tk.StringVar()
+            bureau_cb = ttk.Combobox(dialog, textvariable=bureau_var, values=bureau_names, state="readonly", width=28)
+            bureau_cb.grid(row=2, column=1, **pad)
+            if bureau_names:
+                bureau_cb.current(0)
+            
+            # CARI doc selection (multiselect)
+            tk.Label(dialog, text="CARI Doc(s):").grid(row=3, column=0, sticky="ne", **pad)
+            caridoc_frame = tk.Frame(dialog)
+            caridoc_frame.grid(row=3, column=1, sticky="nsew", **pad)
+            
+            scrollbar = ttk.Scrollbar(caridoc_frame)
+            scrollbar.pack(side="right", fill="y")
+            
+            caridoc_listbox = tk.Listbox(caridoc_frame, yscrollcommand=scrollbar.set, width=30, height=5)
+            caridoc_listbox.pack(side="left", fill="both", expand=True)
+            scrollbar.config(command=caridoc_listbox.yview)
+            
+            for doc in all_caridocs:
+                caridoc_listbox.insert(tk.END, doc[0])
+            
+            # Remark
+            tk.Label(dialog, text="Remark:").grid(row=4, column=0, sticky="e", **pad)
+            remark_var = tk.StringVar()
+            tk.Entry(dialog, textvariable=remark_var, width=30).grid(row=4, column=1, **pad)
+            
+            confirmed = {"value": False}
+            
+            def on_confirm():
+                confirmed["value"] = True
+                dialog.destroy()
+            
+            def on_cancel():
+                dialog.destroy()
+            
+            btn_frame = tk.Frame(dialog)
+            btn_frame.grid(row=5, column=0, columnspan=2, pady=10)
+            tk.Button(btn_frame, text="Assign", width=10, command=on_confirm).pack(side="left", padx=5)
+            tk.Button(btn_frame, text="Cancel", width=10, command=on_cancel).pack(side="right", padx=5)
+            
+            dialog.wait_window()
+            
+            if not confirmed["value"]:
+                return
+            
+            # Validate selections
+            selected_slot = slot_var.get()
+            selected_bureau_str = bureau_var.get()
+            selected_caridocs = [caridoc_listbox.get(i) for i in caridoc_listbox.curselection()]
+            remark = remark_var.get().strip()
+            
+            if not selected_slot:
+                messagebox.showwarning("Warning", "Please select a slot.")
+                return
+            
+            if not selected_bureau_str:
+                messagebox.showwarning("Warning", "Please select a bureau.")
+                return
+            
+            if not selected_caridocs:
+                messagebox.showwarning("Warning", "Please select at least one CARI document.")
+                return
+            
+            # Extract bureau ID from the display string
+            try:
+                bureau_idx = bureau_names.index(selected_bureau_str)
+                selected_bureau_id = bureau_ids[bureau_idx]
+            except (ValueError, IndexError):
+                messagebox.showerror("Error", "Invalid bureau selection.")
+                return
+            
+            # Insert into database
+            try:
+                with db.get_connection() as conn:
+                    cur = conn.cursor()
+                    
+                    for caridoc in selected_caridocs:
+                        cur.execute(
+                            """
+                            INSERT INTO slot_caridocs (PrinterName, SlotName, CARIdoc, BureauID, Bemerkung)
+                            VALUES (?, ?, ?, ?, ?)
+                            """,
+                            (self.filtered_printer, selected_slot, caridoc, selected_bureau_id, remark if remark else None)
+                        )
+                
+                app.refresh_view()
+                messagebox.showinfo("Success", f"Assigned {self.filtered_printer} slot '{selected_slot}' to bureau with {len(selected_caridocs)} CARI document(s).")
+            
+            except sqlite3.IntegrityError as e:
+                messagebox.showerror("Error", f"Cannot add assignment - this combination may already exist:\n{str(e)}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
+            
+        else:
+
+            """Add a new bureau to the database"""
+            try:
+                with db.get_connection() as conn:
+                    cur = conn.cursor()
+
+                    cur.execute("SELECT FachabteilungID, Fachabteilung FROM fachabteilung ORDER BY Fachabteilung")
+                    departments = cur.fetchall()
+
+                    cur.execute("SELECT StandortID, Standort FROM lieugestion ORDER BY StandortID")
+                    locations = cur.fetchall()
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not load lookup data:\n{str(e)}")
+                return
+
+            dialog = tk.Toplevel(app.root)
+            dialog.title("Add New Bureau")
+            dialog.resizable(False, False)
+            dialog.grab_set()
+
+            pad = {"padx": 10, "pady": 5}
+
+            tk.Label(dialog, text="Bureau name:").grid(row=0, column=0, sticky="e", **pad)
+            name_var = tk.StringVar()
+            tk.Entry(dialog, textvariable=name_var, width=30).grid(row=0, column=1, **pad)
+
+            tk.Label(dialog, text="Department:").grid(row=1, column=0, sticky="e", **pad)
+            dept_names = [d[1] for d in departments]
+            dept_ids = [d[0] for d in departments]
+            dept_var = tk.StringVar()
+            dept_cb = ttk.Combobox(dialog, textvariable=dept_var, values=dept_names, state="readonly", width=28)
+            dept_cb.grid(row=1, column=1, **pad)
+
+            tk.Label(dialog, text="Location:").grid(row=2, column=0, sticky="e", **pad)
+            loc_names = [l[1] for l in locations]
+            loc_ids = [l[0] for l in locations]
+            loc_var = tk.StringVar()
+            loc_cb = ttk.Combobox(dialog, textvariable=loc_var, values=loc_names, state="readonly", width=28)
+            loc_cb.grid(row=2, column=1, **pad)
+
+            confirmed = {"value": False}
+
+            def on_confirm():
+                confirmed["value"] = True
+                dialog.destroy()
+
+            def on_cancel():
+                dialog.destroy()
+
+            btn_frame = tk.Frame(dialog)
+            btn_frame.grid(row=3, column=0, columnspan=2, pady=10)
+            tk.Button(btn_frame, text="Add", width=10, command=on_confirm).pack(side="left", padx=5)
+            tk.Button(btn_frame, text="Cancel", width=10, command=on_cancel).pack(side="right", padx=5)
+
+            dialog.wait_window()
+
+            if not confirmed["value"]:
+                return
+
+            new_name = name_var.get().strip()
+            if not new_name:
+                messagebox.showwarning("Warning", "Bureau name cannot be empty.")
+                return
+
+            dept_name = dept_var.get()
+            loc_name = loc_var.get()
+
+            new_dept_id = None
+            new_loc_id = None
+
+            if dept_name:
+                try:
+                    idx = dept_names.index(dept_name)
+                    new_dept_id = dept_ids[idx]
+                except ValueError:
+                    pass
+
+            if loc_name:
+                try:
+                    idx = loc_names.index(loc_name)
+                    new_loc_id = loc_ids[idx]
+                except ValueError:
+                    pass
+
+            try:
+                with db.get_connection() as conn:
+                    cur = conn.cursor()
+                    cur.execute(
+                        """
+                        INSERT INTO bureaus (Bureau, FachabteilungID, StandortID)
+                        VALUES (?, ?, ?)
+                        """,
+                        (new_name, new_dept_id, new_loc_id),
+                    )
+
+                app.refresh_view()
+                messagebox.showinfo("Success", "Bureau added successfully.")
+            except sqlite3.IntegrityError as e:
+                messagebox.showerror("Error", f"Cannot add bureau:\n{str(e)}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
 
 
     def modify(self, app, selected_rows):
@@ -266,51 +465,6 @@ class BureausView(BaseView):
             messagebox.showerror("Error", f"Cannot update bureau:\n{str(e)}")
         except Exception as e:
             messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
-
-
-    def get_query(self):
-        """Return query, optionally filtered by printer name"""
-        if self.filtered_printer:
-            return f"""
-                SELECT
-                    b.BureauID,
-                    b.Bureau,
-                    (
-                        SELECT COUNT(DISTINCT sc.PrinterName)
-                        FROM slot_caridocs sc 
-                        WHERE sc.BureauID = b.BureauID
-                    ) AS 'Printers',
-                    (
-                        SELECT COUNT(*) 
-                        FROM (
-                            SELECT DISTINCT SlotName, CARIdoc
-                            FROM slot_caridocs sc 
-                            WHERE sc.BureauID = b.BureauID
-                            AND sc.PRINTERNAME = '{self.filtered_printer}'
-                            )
-                    ) AS 'Anzahl CARI-Docs',
-                    f.Fachabteilung,
-                    l.Standort
-                FROM bureaus b
-                LEFT JOIN fachabteilung f ON b.FachabteilungID = f.FachabteilungID
-                LEFT JOIN lieugestion l ON b.StandortID = l.StandortID
-                WHERE EXISTS (
-                    SELECT 1
-                    FROM slot_caridocs sc2
-                    WHERE sc2.BureauID = b.BureauID
-                    AND sc2.PrinterName = '{self.filtered_printer}'
-                )
-            """
-        return self.query
-    
-    def set_filter(self, printer_name=None):
-        """Set the printer filter"""
-        self.filtered_printer = printer_name
-   
-    
-    def clear_filter(self):
-        """Clear the printer filter"""
-        self.filtered_printer = None
 
 
 

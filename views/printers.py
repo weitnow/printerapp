@@ -13,7 +13,7 @@ import tkinter as tk
 # =====================
 class PrintersView(BaseView):
     name = "printers"
-    columns = ["PrinterName", "Printerslots*", "CARIdocs*", "Bureaus*", "PrinterModel", "Standort"]
+    columns = ["PrinterName", "Printerslots*", "CARIdocs*", "Bureaus*", "Autoprint", "PrinterModel", "Standort"]
     columns_actions = {
         "#2": "show_printer_slots",
         "#3": "show_caridocs",  
@@ -46,6 +46,14 @@ class PrintersView(BaseView):
             FROM slot_caridocs sc
             WHERE sc.PrinterName = p.PrinterName
         ) AS "Anzahl Bureaus",
+
+        -- Autoprint: Check if any slot has Autoprint enabled
+        CASE WHEN EXISTS (
+            SELECT 1
+            FROM printerslots ps
+            WHERE ps.PrinterName = p.PrinterName
+            AND ps.Autoprint = 1
+        ) THEN 'Yes' ELSE 'No' END AS "Autoprint",
 
         p.PrinterModel,
         l.Standort
@@ -89,6 +97,14 @@ class PrintersView(BaseView):
                     FROM slot_caridocs sc
                     WHERE sc.PrinterName = p.PrinterName
                 ) AS "Anzahl Bureaus",
+
+                -- Autoprint: Check if any slot has Autoprint enabled
+                CASE WHEN EXISTS (
+                    SELECT 1
+                    FROM printerslots ps
+                    WHERE ps.PrinterName = p.PrinterName
+                    AND ps.Autoprint = 1
+                ) THEN 'Yes' ELSE 'No' END AS "Autoprint",
 
                 p.PrinterModel,
                 l.Standort
